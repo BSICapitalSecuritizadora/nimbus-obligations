@@ -1,154 +1,240 @@
-# Gestão de Obrigações por Emissão
+# Nimbus Obligations
 
-Protótipo frontend para acompanhamento de obrigações contratuais vinculadas a operações de securitização (CRI, CRA, Debêntures).
+**Gestão de Obrigações por Emissão** — MVP para monitoramento de obrigações contratuais vinculadas a operações de securitização (CRI, CRA, Debêntures, Notas Comerciais e outros instrumentos de renda fixa estruturada).
 
 ---
 
 ## O que é este projeto
 
-Este é um **protótipo standalone** — sem backend, sem banco de dados e sem autenticação — desenvolvido para demonstrar o conceito de um módulo de gestão de obrigações oriundas de um Termo de Securitização.
+Sistema de gestão de obrigações oriundas de um **Termo de Securitização**, permitindo:
 
-Todos os dados exibidos são **simulados (mock data)**. Nenhuma informação é persistida além da sessão do navegador.
+1. **Cadastrar operações** de securitização (CRI, CRA, Debêntures, etc.)
+2. **Fazer upload do Termo de Securitização** (PDF)
+3. **Extrair o texto** do PDF automaticamente
+4. **Gerar obrigações sugeridas** com base no texto extraído (análise por palavras-chave, preparado para IA futura)
+5. **Revisar, editar, aprovar ou rejeitar** cada sugestão
+6. **Acompanhar o dashboard** de obrigações aprovadas com status, vencimentos e prioridades
 
----
-
-## Funcionalidades do protótipo
-
-- **Dashboard com cards de resumo**: Total, Em dia, A vencer, Vencidas, Concluídas e Críticas
-- **Tabela de obrigações** com filtros por Emissão, Status, Tipo, Área, Prioridade e Vencimento
-- **Modal de detalhes** com todos os campos da obrigação e histórico de alterações
-- **Formulário de criação e edição** com validação de campos obrigatórios
-- **Estado vazio** quando filtros não retornam resultados
-- **Layout responsivo** para desktop e notebooks
-- Interface em **Português Brasileiro**
+> **Este protótipo** usa dados de demonstração e extração por mock (sem IA real). A estrutura está preparada para integração com Azure OpenAI ou Claude.
 
 ---
 
-## Tecnologias utilizadas
+## Stack
 
-| Tecnologia | Versão |
+| Componente | Versão |
 |---|---|
-| React | 18 |
-| TypeScript | 5 |
-| Vite | 5 |
-| Tailwind CSS | 3 |
+| PHP | 8.2 |
+| Laravel | 12 |
+| Filament | 3 |
+| Livewire | 3 |
+| SQLite | (dev) / MySQL, PostgreSQL (prod) |
+| Tailwind CSS | 4 |
+| Vite | 7 |
+| smalot/pdfparser | 2 |
+
+---
+
+## Pré-requisitos
+
+- PHP 8.2+ com extensões: `sqlite3`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `openssl`, `tokenizer`, `xml`
+- Composer 2+
+- Node.js 18+
+- npm 9+
 
 ---
 
 ## Como executar localmente
 
-### Pré-requisitos
-
-- Node.js 18+ instalado
-- npm 9+
-
-### Instalação
-
 ```bash
+# 1. Instalar dependências PHP
+composer install
+
+# 2. Copiar e configurar o .env
+cp .env.example .env
+php artisan key:generate
+
+# 3. Criar banco SQLite e rodar migrations
+touch database/database.sqlite
+php artisan migrate
+
+# 4. Popular com dados de demonstração
+php artisan db:seed
+
+# 5. Instalar dependências frontend e fazer build
 npm install
-```
-
-### Servidor de desenvolvimento
-
-```bash
-npm run dev
-```
-
-Acesse `http://localhost:5173` no navegador.
-
-### Build de produção
-
-```bash
 npm run build
+
+# 6. Link de armazenamento (para uploads)
+php artisan storage:link
+
+# 7. Iniciar servidor
+php artisan serve
 ```
 
-Os arquivos estáticos serão gerados na pasta `dist/`.
+Acesse: **http://localhost:8000/admin**
 
-### Preview do build
+**Login de demonstração:**
+- E-mail: `admin@nimbus.local`
+- Senha: `password`
+
+---
+
+## Como usar o fluxo de upload e extração
+
+### 1. Cadastrar uma Operação
+- Menu **Operações → Nova Operação**
+- Preencha: nome, tipo (CRI, CRA, Debêntures...), emissora, agente fiduciário, datas
+
+### 2. Fazer Upload do Termo de Securitização
+- Menu **Documentos → Termos de Securitização → Fazer Upload de Termo**
+- Selecione a operação e anexe o PDF (máx. 20 MB)
+- Ou clique em **"Fazer Upload de Termo"** na tela de detalhe da operação
+
+### 3. Processar o Documento
+- Na lista de documentos, clique em **"Processar Documento"**
+- O sistema extrai o texto do PDF e divide em chunks
+- Status muda de *Pendente* → *Processado*
+- Se o PDF for escaneado (sem texto), o status muda para *Falhou*
+
+### 4. Gerar Obrigações Sugeridas
+- Após o processamento, clique em **"Gerar Obrigações Sugeridas"**
+- O sistema analisa o texto com palavras-chave e gera sugestões
+- As sugestões ficam com status **"Sugerida"** e um badge aparece no menu
+
+### 5. Revisar e Aprovar
+- Menu **Obrigações → Obrigações Sugeridas**
+- Para cada sugestão: clique em **Aprovar**, **Rejeitar** ou **Editar** antes de aprovar
+- Ao aprovar, uma obrigação é criada no dashboard com histórico
+
+### 6. Acompanhar o Dashboard
+- Menu **Dashboard** — exibe cards de resumo e tabela filtrável
+- Filtre por operação, status, prioridade, área responsável, tipo
+
+---
+
+## Como funciona o processamento
+
+### Extração de texto (TermDocumentTextExtractor)
+- Usa `smalot/pdfparser` para ler o PDF
+- Divide o texto em chunks de ~3.000 caracteres
+- Tenta detectar referências de cláusulas automaticamente
+- Salva o texto extraído e os chunks no banco de dados
+
+### Extração de obrigações (MockObligationExtractor)
+- Analisa o texto por palavras-chave relevantes (ex.: "covenant", "fundo de reserva", "relatório mensal")
+- Para cada padrão encontrado, gera uma sugestão de obrigação realista
+- Inclui pontuação de confiança estimada (0–1)
+- Para integrar IA real: trocar `MockObligationExtractor` por `AiObligationExtractor` em `AppServiceProvider`
+
+---
+
+## Estrutura principal
+
+```
+app/
+├── Contracts/
+│   └── ObligationExtractorInterface.php   ← Interface para extratores
+├── Jobs/
+│   └── ProcessTermDocumentJob.php         ← Job de processamento (sincronizado no MVP)
+├── Models/
+│   ├── Operation.php
+│   ├── TermDocument.php
+│   ├── TermDocumentChunk.php
+│   ├── ExtractedObligation.php
+│   ├── Obligation.php
+│   └── ObligationHistory.php
+├── Services/
+│   ├── TermDocumentTextExtractor.php      ← Extração de texto via smalot/pdfparser
+│   ├── MockObligationExtractor.php        ← Extração por palavras-chave (demo)
+│   └── ObligationExtractionService.php   ← Orquestrador da extração
+└── Filament/
+    ├── Pages/
+    │   └── ObligationsDashboard.php       ← Dashboard principal
+    └── Resources/
+        ├── OperationResource/
+        ├── TermDocumentResource/
+        ├── ExtractedObligationResource/   ← Obrigações sugeridas
+        └── ObligationResource/            ← Obrigações aprovadas
+
+database/migrations/
+├── 2025_01_01_000001_create_operations_table.php
+├── 2025_01_01_000002_create_term_documents_table.php
+├── 2025_01_01_000003_create_term_document_chunks_table.php
+├── 2025_01_01_000004_create_extracted_obligations_table.php
+├── 2025_01_01_000005_create_obligations_table.php
+└── 2025_01_01_000006_create_obligation_histories_table.php
+
+prototype/                                 ← Protótipo React original (referência)
+```
+
+---
+
+## Limitações atuais (MVP)
+
+- **Sem OCR real** — PDFs escaneados (imagem) não são extraídos; apenas PDFs com texto nativo
+- **Extração por palavras-chave** — não usa IA; identifica obrigações por padrões simples
+- **Sem notificações** — não há alertas de vencimento por e-mail/SMS
+- **Sem upload de evidências** — apenas registro da evidência exigida
+- **Autenticação simplificada** — sem perfis de acesso ou permissões por papel
+- **Fila configurada** — mas processamento é sincronizado no MVP (não requer worker)
+
+---
+
+## Melhorias futuras
+
+| Melhoria | Descrição |
+|---|---|
+| Azure Document Intelligence | OCR real para PDFs escaneados |
+| Azure OpenAI / Claude | Extração de obrigações por IA generativa |
+| Upload de evidências | Armazenamento de comprovantes por obrigação |
+| Notificações de vencimento | E-mail/push com alertas de prazo |
+| Permissões por papel | Administrador, Gestor, Visualizador |
+| Integração sistêmica | Conexão com sistema interno da empresa |
+| Calendário de obrigações | Visão de calendário mensal |
+| Exportação | PDF e Excel do dashboard |
+| Azure Blob Storage | Armazenamento de PDFs no Azure |
+| Worker de filas | Processamento assíncrono em produção |
+
+---
+
+## Deploy sugerido (Azure)
+
+1. **Azure App Service** — para o backend Laravel (PHP 8.2)
+2. **Azure Database for MySQL** — substituir SQLite em produção
+3. **Azure Blob Storage** — para armazenamento de PDFs (já preparado via `Storage::disk()`)
+4. **Azure Static Web Apps** — para o frontend (se desacoplado futuramente)
+
+### Variáveis de ambiente para produção
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+DB_CONNECTION=mysql
+DB_HOST=...
+DB_DATABASE=nimbus_obligations
+DB_USERNAME=...
+DB_PASSWORD=...
+FILESYSTEM_DISK=azure     # ou s3, ou local
+AZURE_STORAGE_ACCOUNT=...
+AZURE_STORAGE_KEY=...
+AZURE_STORAGE_CONTAINER=termo-docs
+QUEUE_CONNECTION=redis    # ou database
+```
+
+---
+
+## Desenvolvimento
 
 ```bash
-npm run preview
+# Servidor de desenvolvimento com hot reload
+npm run dev
+
+# Em outro terminal
+php artisan serve
+
+# Reset e re-seed do banco
+php artisan migrate:fresh --seed
+
+# Testes
+php artisan test
 ```
-
----
-
-## Deploy sugerido
-
-### GitHub Pages
-
-1. Faça push para um repositório público no GitHub.
-2. Habilite GitHub Pages na aba **Settings > Pages**, apontando para a branch `main` e pasta `/dist` (ou configure o GitHub Actions para fazer o deploy automático).
-3. Se necessário, ajuste o `base` no `vite.config.ts`:
-
-```ts
-export default defineConfig({
-  base: '/nome-do-repositorio/',
-  plugins: [react()],
-})
-```
-
-### Azure Static Web Apps
-
-1. Faça push para o GitHub.
-2. No portal Azure, crie um **Static Web App** e conecte ao repositório.
-3. Configure o workflow gerado pelo Azure com:
-   - `app_location: "/"`
-   - `output_location: "dist"`
-4. O deploy ocorrerá automaticamente a cada push.
-
----
-
-## Estrutura do projeto
-
-```
-src/
-├── components/
-│   ├── DashboardCards.tsx       # Cards de resumo no topo
-│   ├── ObligationsTable.tsx     # Tabela principal de obrigações
-│   ├── ObligationFilters.tsx    # Painel de filtros
-│   ├── ObligationDetailsModal.tsx  # Drawer de visualização
-│   ├── ObligationFormModal.tsx  # Modal de criação/edição
-│   ├── StatusBadge.tsx          # Badge de status colorido
-│   └── PriorityBadge.tsx        # Badge de prioridade colorido
-├── data/
-│   └── mockObligations.ts       # 18 obrigações simuladas + listas de opções
-├── types/
-│   └── obligation.ts            # Tipos TypeScript (EmissionObligation, etc.)
-├── utils/
-│   └── dateUtils.ts             # Formatação de datas (ISO → DD/MM/YYYY)
-├── App.tsx                      # Componente raiz com estado global
-├── main.tsx                     # Ponto de entrada
-└── index.css                    # Estilos Tailwind
-```
-
----
-
-## O que está mockado
-
-- **18 obrigações** cobrindo os tipos mais comuns encontrados em um Termo de Securitização
-- **4 emissões**: CRI Residencial Aurora 2025, CRA Agro Safra Forte 2025, CRI Prime Offices 2024, Debêntures Infra Energia 2025
-- **Histórico de alterações** por obrigação (simulado)
-- **Estado React** para criação e edição (não persiste ao recarregar a página)
-
----
-
-## O que seria necessário para produção
-
-| Item | Descrição |
-|---|---|
-| Backend | API REST ou GraphQL para persistência das obrigações |
-| Banco de dados | PostgreSQL, SQL Server ou similar |
-| Autenticação | Azure AD / OAuth 2.0 com perfis de acesso |
-| Permissões | Controle por papel (visualizador, editor, administrador) |
-| Upload de evidências | Integração com Azure Blob Storage ou SharePoint |
-| Alertas por e-mail | Notificações automáticas de vencimento (Azure Logic Apps ou similar) |
-| Integração sistêmica | Conexão com o sistema interno da empresa |
-| Extração automática de obrigações | Leitura e interpretação de Termos de Securitização via IA/OCR |
-| Auditoria | Log de alterações com rastreabilidade por usuário |
-| Relatórios | Exportação para PDF/Excel |
-
----
-
-## Observação
-
-Este protótipo foi desenvolvido exclusivamente para demonstração de conceito. Os dados são fictícios e não representam nenhuma operação real.

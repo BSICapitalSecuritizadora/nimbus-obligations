@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Models\Obligation;
+use App\Models\Operation;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Pages\Page;
+use Filament\Tables;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+class ObligationsDashboard extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static ?string $navigationIcon  = 'heroicon-o-chart-bar-square';
+    protected static ?string $navigationLabel = 'Dashboard';
+    protected static ?string $title           = 'Gestão de Obrigações por Emissão';
+    protected static ?string $slug            = 'dashboard';
+    protected static ?int $navigationSort     = 0;
+    protected static string $view             = 'filament.pages.obligations-dashboard';
+
+    // ── filter state ─────────────────────────────────────────────────────────
+    public ?string $filterOperation     = null;
+    public ?string $filterStatus        = null;
+    public ?string $filterPriority      = null;
+    public ?string $filterArea          = null;
+    public ?string $filterType          = null;
+
+    // ── summary counts ────────────────────────────────────────────────────────
+    public function getStats(): array
+    {
+        $q = Obligation::query();
+
+        return [
+            'total'        => (clone $q)->count(),
+            'on_track'     => (clone $q)->where('status', 'on_track')->count(),
+            'due_soon'     => (clone $q)->where('status', 'due_soon')->count(),
+            'overdue'      => (clone $q)->where('status', 'overdue')->count(),
+            'completed'    => (clone $q)->where('status', 'completed')->count(),
+            'critical'     => (clone $q)->where('priority', 'critical')->count(),
+        ];
+    }
+
+    public function getOperationOptions(): array
+    {
+        return Operation::pluck('name', 'id')->toArray();
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query($this->buildQuery())
+            ->columns([
+                Tables\Columns\TextColumn::make('operation.name')
+                    ->label('Operação')
+                    ->searchable()
+                    ->wrap(),
+
+                Tables\Columns\TextColumn::make('title')
+                    ->label('Título')
+                    ->searchable()
+                    ->wrap(),
+
+                Tables\Columns\TextColumn::make('obligation_type')
+                    ->label('Tipo')
+                    ->badge()
+                    ->color('gray'),
+
+                Tables\Columns\TextColumn::make('responsible_area')
+                    ->label('Área')
+                    ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('due_date')
+                    ->label('Vencimento')
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->sortable(),
+
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Status')
+                    ->formatStateUsing(fn ($state) => Obligation::statusOptions()[$state] ?? $state)
+                    ->colors([
+                        'success' => 'on_track',
+                        'warning' => 'due_soon',
+                        'danger'  => 'overdue',
+                        'gray'    => 'completed',
+                        'info'    => 'under_review',
+                    ]),
+
+                Tables\Columns\BadgeColumn::make('priority')
+                    ->label('Prioridade')
+                    ->formatStateUsing(fn ($state) => Obligation::priorityOptions()[$state] ?? $state)
+                    ->colors([
+                        'gray'    => 'low',
+                        'info'    => 'medium',
+                        'warning' => 'high',
+                        'danger'  => 'critical',
+                    ]),
+
+                Tables\Columns\TextColumn::make('source_clause')
+                    ->label('Referência no Termo')
+                    ->placeholder('—'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('operation')
+                    ->label('Operação')
+                    ->relationship('operation', 'name'),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->options(Obligation::statusOptions()),
+
+                Tables\Filters\SelectFilter::make('priority')
+                    ->label('Prioridade')
+                    ->options(Obligation::priorityOptions()),
+
+                Tables\Filters\SelectFilter::make('responsible_area')
+                    ->label('Área Responsável')
+                    ->options(fn () => Obligation::distinct()->pluck('responsible_area', 'responsible_area')->filter()->toArray()),
+
+                Tables\Filters\SelectFilter::make('obligation_type')
+                    ->label('Tipo')
+                    ->options(array_combine(Obligation::obligationTypes(), Obligation::obligationTypes())),
+            ])
+            ->actions([
+                Tables\Actions\Action::make('view')
+                    ->label('Ver')
+                    ->icon('heroicon-o-eye')
+                    ->url(fn (Obligation $record) => \App\Filament\Resources\ObligationResource::getUrl('view', ['record' => $record])),
+
+                Tables\Actions\Action::make('edit')
+                    ->label('Editar')
+                    ->icon('heroicon-o-pencil')
+                    ->url(fn (Obligation $record) => \App\Filament\Resources\ObligationResource::getUrl('edit', ['record' => $record])),
+            ])
+            ->defaultSort('due_date', 'asc')
+            ->emptyStateHeading('Nenhuma obrigação encontrada')
+            ->emptyStateDescription('Cadastre operações, faça upload dos Termos e aprove as sugestões geradas.')
+            ->emptyStateIcon('heroicon-o-clipboard-document-list');
+    }
+
+    private function buildQuery(): Builder
+    {
+        return Obligation::query()->with('operation');
+    }
+}

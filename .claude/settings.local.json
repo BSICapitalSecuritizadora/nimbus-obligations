@@ -3,7 +3,28 @@
     "allow": [
       "Bash(npm create:*)",
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(php --version)",
+      "Bash(composer --version)",
+      "Bash(mkdir -p /c/temp)",
+      "Bash(composer create-project:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp -r /c/temp/nimbus-temp/app .)",
+      "Bash(cp -r /c/temp/nimbus-temp/bootstrap .)",
+      "Bash(cp -r /c/temp/nimbus-temp/config .)",
+      "Bash(cp -r /c/temp/nimbus-temp/database .)",
+      "Bash(cp -r /c/temp/nimbus-temp/public .)",
+      "Bash(cp /c/temp/nimbus-temp/artisan /c/xampp/htdocs/nimbus-obligations/artisan)",
+      "Bash(cp /c/temp/nimbus-temp/composer.json /c/xampp/htdocs/nimbus-obligations/composer.json)",
+      "Bash(cp /c/temp/nimbus-temp/composer.lock /c/xampp/htdocs/nimbus-obligations/composer.lock)",
+      "Bash(cp /c/temp/nimbus-temp/phpunit.xml /c/xampp/htdocs/nimbus-obligations/phpunit.xml)",
+      "Bash(cp /c/temp/nimbus-temp/package.json /c/xampp/htdocs/nimbus-obligations/package.json)",
+      "Bash(php artisan:*)",
+      "Bash(cp /c/temp/nimbus-temp/.env.example .env)",
+      "Bash(sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/' .env)",
+      "Bash(sed -i '/DB_HOST=/d; /DB_PORT=/d; /DB_DATABASE=/d; /DB_USERNAME=/d; /DB_PASSWORD=/d' .env)",
+      "Bash(composer require:*)",
+      "Bash(php:*)"
     ]
   }
 }
