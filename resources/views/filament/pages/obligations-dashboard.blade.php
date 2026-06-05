@@ -10,54 +10,121 @@
     {{-- Summary cards --}}
     @php $stats = $this->getStats(); @endphp
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+    <style>
+        .dashboard-summary-cards .border-blue-500\/25 { border-color: rgb(59 130 246 / 0.25); }
+        .dashboard-summary-cards .border-emerald-500\/25 { border-color: rgb(16 185 129 / 0.25); }
+        .dashboard-summary-cards .border-amber-500\/25 { border-color: rgb(245 158 11 / 0.25); }
+        .dashboard-summary-cards .border-red-500\/25 { border-color: rgb(239 68 68 / 0.25); }
+        .dashboard-summary-cards .border-cyan-500\/25 { border-color: rgb(6 182 212 / 0.25); }
+        .dashboard-summary-cards .border-purple-500\/25 { border-color: rgb(168 85 247 / 0.25); }
+
+        .dashboard-summary-cards .bg-blue-500\/\[0\.04\] { background-color: rgb(59 130 246 / 0.04); }
+        .dashboard-summary-cards .bg-emerald-500\/\[0\.04\] { background-color: rgb(16 185 129 / 0.04); }
+        .dashboard-summary-cards .bg-amber-500\/\[0\.04\] { background-color: rgb(245 158 11 / 0.04); }
+        .dashboard-summary-cards .bg-red-500\/\[0\.04\] { background-color: rgb(239 68 68 / 0.04); }
+        .dashboard-summary-cards .bg-cyan-500\/\[0\.04\] { background-color: rgb(6 182 212 / 0.04); }
+        .dashboard-summary-cards .bg-purple-500\/\[0\.04\] { background-color: rgb(168 85 247 / 0.04); }
+
+        .dashboard-summary-cards .text-blue-400 { color: rgb(96 165 250); }
+        .dashboard-summary-cards .text-emerald-400 { color: rgb(52 211 153); }
+        .dashboard-summary-cards .text-amber-400 { color: rgb(251 191 36); }
+        .dashboard-summary-cards .text-red-400 { color: rgb(248 113 113); }
+        .dashboard-summary-cards .text-cyan-400 { color: rgb(34 211 238); }
+        .dashboard-summary-cards .text-purple-400 { color: rgb(192 132 252); }
+
+        .dashboard-summary-cards .text-gray-800 { color: rgb(31 41 55); }
+        .dashboard-summary-cards .text-gray-600 { color: rgb(75 85 99); }
+        .dark .dashboard-summary-cards .dark\:text-gray-100 { color: rgb(243 244 246); }
+        .dark .dashboard-summary-cards .dark\:text-gray-300 { color: rgb(209 213 219); }
+    </style>
+
+    <div
+        class="dashboard-summary-cards grid grid-cols-1 md:grid-cols-[--cols-md] xl:grid-cols-[--cols-xl] gap-4 lg:gap-6 mb-8"
+        style="--cols-md: repeat(2, minmax(0, 1fr)); --cols-xl: repeat(3, minmax(0, 1fr));"
+    >
 
         {{-- Total --}}
-        <div class="relative overflow-hidden rounded-xl bg-blue-600 p-5 shadow-md ring-1 ring-blue-500/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-blue-500/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-blue-100">Total</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['total'] }}</p>
-            <p class="relative mt-1 text-xs text-blue-200">obrigações</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-blue-500/25 bg-blue-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Total</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/[0.04] text-blue-400">
+                    <x-heroicon-o-rectangle-stack class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-blue-400">{{ $stats['total'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">obrigações</p>
+            </div>
         </div>
 
         {{-- Em dia --}}
-        <div class="relative overflow-hidden rounded-xl bg-emerald-600 p-5 shadow-md ring-1 ring-emerald-500/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-emerald-500/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-emerald-100">Em dia</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['on_track'] }}</p>
-            <p class="relative mt-1 text-xs text-emerald-200">dentro do prazo</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Em dia</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/[0.04] text-emerald-400">
+                    <x-heroicon-o-check-circle class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-emerald-400">{{ $stats['on_track'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">dentro do prazo</p>
+            </div>
         </div>
 
         {{-- A vencer --}}
-        <div class="relative overflow-hidden rounded-xl bg-amber-500 p-5 shadow-md ring-1 ring-amber-400/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-amber-400/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-amber-100">A vencer</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['due_soon'] }}</p>
-            <p class="relative mt-1 text-xs text-amber-100">atenção necessária</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-amber-500/25 bg-amber-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">A vencer</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/[0.04] text-amber-400">
+                    <x-heroicon-o-clock class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-amber-400">{{ $stats['due_soon'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">atenção necessária</p>
+            </div>
         </div>
 
         {{-- Vencidas --}}
-        <div class="relative overflow-hidden rounded-xl bg-red-600 p-5 shadow-md ring-1 ring-red-500/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-red-500/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-red-100">Vencidas</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['overdue'] }}</p>
-            <p class="relative mt-1 text-xs text-red-200">em atraso</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-red-500/25 bg-red-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Vencidas</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/[0.04] text-red-400">
+                    <x-heroicon-o-exclamation-circle class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-red-400">{{ $stats['overdue'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">em atraso</p>
+            </div>
         </div>
 
         {{-- Concluídas --}}
-        <div class="relative overflow-hidden rounded-xl bg-cyan-600 p-5 shadow-md ring-1 ring-cyan-500/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-cyan-500/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-cyan-100">Concluídas</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['completed'] }}</p>
-            <p class="relative mt-1 text-xs text-cyan-200">finalizadas</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Concluídas</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-cyan-500/[0.04] text-cyan-400">
+                    <x-heroicon-o-check-badge class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-cyan-400">{{ $stats['completed'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">finalizadas</p>
+            </div>
         </div>
 
         {{-- Críticas --}}
-        <div class="relative overflow-hidden rounded-xl bg-purple-700 p-5 shadow-md ring-1 ring-purple-500/50">
-            <div class="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-purple-500/30"></div>
-            <p class="relative text-xs font-semibold uppercase tracking-widest text-purple-200">Críticas</p>
-            <p class="relative mt-2 text-4xl font-extrabold text-white">{{ $stats['critical'] }}</p>
-            <p class="relative mt-1 text-xs text-purple-300">prioridade máxima</p>
+        <div class="flex flex-col justify-between p-6 min-h-[120px] rounded-xl border border-purple-500/25 bg-purple-500/[0.04] shadow-sm">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Críticas</h3>
+                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-purple-500/[0.04] text-purple-400">
+                    <x-heroicon-o-exclamation-triangle class="w-5 h-5" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-4xl font-extrabold text-purple-400">{{ $stats['critical'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">prioridade máxima</p>
+            </div>
         </div>
 
     </div>
