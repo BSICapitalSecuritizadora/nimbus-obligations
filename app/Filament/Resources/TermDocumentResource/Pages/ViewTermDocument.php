@@ -83,6 +83,7 @@ class ViewTermDocument extends ViewRecord
                 ->columns(3)
                 ->collapsed()
                 ->schema([
+                    // ── Status row ────────────────────────────────────────────
                     Infolists\Components\TextEntry::make('extraction_metadata.generation_status')
                         ->label('Status da Geração')
                         ->badge()
@@ -120,26 +121,60 @@ class ViewTermDocument extends ViewRecord
                         ->label('Modelo')
                         ->placeholder('—'),
 
-                    Infolists\Components\TextEntry::make('extraction_metadata.suggestions_generated')
-                        ->label('Sugestões Criadas')
+                    // ── API key / config ───────────────────────────────────────
+                    Infolists\Components\TextEntry::make('extraction_metadata.gemini_api_key_configured')
+                        ->label('API Key Configurada')
+                        ->badge()
+                        ->formatStateUsing(fn ($state) => match (true) {
+                            $state === true  => 'Sim',
+                            $state === false => 'NÃO — configure GEMINI_API_KEY',
+                            default          => '—',
+                        })
+                        ->color(fn ($state) => $state === false ? 'danger' : 'success')
                         ->placeholder('—'),
 
-                    Infolists\Components\TextEntry::make('extraction_metadata.total_chunks')
-                        ->label('Total de Segmentos')
+                    Infolists\Components\TextEntry::make('extraction_metadata.chunk_selection_mode')
+                        ->label('Modo de Seleção')
+                        ->badge()
+                        ->color('gray')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.max_chunks_limit')
+                        ->label('Limite de Chunks')
+                        ->formatStateUsing(fn ($state) => $state !== null ? (string) $state : 'Sem limite')
+                        ->placeholder('Sem limite'),
+
+                    // ── Chunk counters ─────────────────────────────────────────
+                    Infolists\Components\TextEntry::make('extraction_metadata.total_chunks_available')
+                        ->label('Chunks Disponíveis')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.chunks_selected')
+                        ->label('Chunks Selecionados')
                         ->placeholder('—'),
 
                     Infolists\Components\TextEntry::make('extraction_metadata.chunks_processed')
-                        ->label('Segmentos Processados')
+                        ->label('Chunks Processados')
                         ->placeholder('—'),
 
+                    // ── Obligation counters ────────────────────────────────────
                     Infolists\Components\TextEntry::make('extraction_metadata.obligations_returned')
                         ->label('Retornadas pela IA')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.obligations_created')
+                        ->label('Criadas (após dedup.)')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.suggestions_generated')
+                        ->label('Sugestões Salvas')
                         ->placeholder('—'),
 
                     Infolists\Components\TextEntry::make('extraction_metadata.obligations_skipped')
                         ->label('Descartadas (validação)')
                         ->placeholder('—'),
 
+                    // ── Timestamps ────────────────────────────────────────────
                     Infolists\Components\TextEntry::make('extraction_metadata.started_at')
                         ->label('Iniciado em')
                         ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('d/m/Y H:i:s') : '—')
@@ -150,6 +185,7 @@ class ViewTermDocument extends ViewRecord
                         ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('d/m/Y H:i:s') : '—')
                         ->placeholder('—'),
 
+                    // ── Errors ────────────────────────────────────────────────
                     Infolists\Components\TextEntry::make('extraction_metadata.last_error')
                         ->label('Erro na Extração IA')
                         ->color('danger')

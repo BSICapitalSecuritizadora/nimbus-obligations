@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ExtractedObligationResource extends Resource
 {
-    protected static ?string $model = ExtractedObligation::class;
+    protected static ?string $model = \App\Models\ExtractedObligation::class;
 
     protected static ?string $navigationIcon   = 'heroicon-o-light-bulb';
     protected static ?string $navigationGroup  = 'Obrigações';
@@ -118,7 +118,7 @@ class ExtractedObligationResource extends Resource
             // source_excerpt, description, review_notes and due_rule are large text
             // fields not needed in the list. They are loaded on-demand in detail/edit
             // views and inside action closures via $record->fresh().
-            ->modifyQueryUsing(fn (Builder $q) => $q->select([
+            ->modifyQueryUsing(fn (Builder $query) => $query->select([
                 'id', 'operation_id', 'term_document_id',
                 'title', 'obligation_type', 'status', 'priority',
                 'responsible_area', 'recurrence',

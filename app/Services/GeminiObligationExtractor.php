@@ -32,7 +32,8 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
     private string  $model;
     private int     $timeout;
     private int     $maxChunkChars;
-    private int     $maxChunksPerDocument;
+    private ?int    $maxChunksPerDocument;
+    private string  $chunkSelectionMode;
     private bool    $redactSensitive;
     private ?string $apiKey;
 
@@ -51,12 +52,13 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
         private SensitiveDataRedactor $redactor,
         private ObligationExtractionValidator $validator,
     ) {
-        $this->apiKey          = config('obligations.gemini.api_key');
-        $this->model           = config('obligations.gemini.model', 'gemini-2.5-flash');
-        $this->timeout         = config('obligations.gemini.timeout', 30);
-        $this->maxChunkChars   = config('obligations.gemini.max_chunk_chars', 8000);
-        $this->maxChunksPerDocument = config('obligations.gemini.max_chunks_per_document', 3);
-        $this->redactSensitive = config('obligations.gemini.redact_sensitive', true);
+        $this->apiKey               = config('obligations.gemini.api_key');
+        $this->model                = config('obligations.gemini.model', 'gemini-2.5-flash');
+        $this->timeout              = config('obligations.gemini.timeout', 30);
+        $this->maxChunkChars        = config('obligations.gemini.max_chunk_chars', 8000);
+        $this->maxChunksPerDocument = config('obligations.gemini.max_chunks_per_document'); // null = no limit
+        $this->chunkSelectionMode   = config('obligations.gemini.chunk_selection_mode', 'all');
+        $this->redactSensitive      = config('obligations.gemini.redact_sensitive', true);
     }
 
     // ── Interface ─────────────────────────────────────────────────────────────
@@ -79,7 +81,21 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
 
         // ── Pre-flight ────────────────────────────────────────────────────────
         if (empty($this->apiKey)) {
-            $this->lastError = 'GEMINI_API_KEY não está configurado. Defina a variável de ambiente e tente novamente.';
+            $this->lastError = 'GEMINI_API_KEY is not configured. Set GEMINI_API_KEY in .env and run: php artisan config:clear';
+            $this->extractionStats = [
+                'total_chunks_available'    => 0,
+                'chunks_selected'           => 0,
+                'chunks_processed'          => 0,
+                'chunk_selection_mode'      => $this->chunkSelectionMode,
+                'max_chunks_limit'          => $this->maxChunksPerDocument,
+                'gemini_api_key_configured' => false,
+                'obligations_returned'      => 0,
+                'obligations_created'       => 0,
+                'obligations_skipped'       => 0,
+                'skipped_reasons'           => [],
+                'started_at'               => $startedAt->toIso8601String(),
+                'finished_at'              => now()->toIso8601String(),
+            ];
             Log::error('[GeminiExtractor] API key ausente.', ['document_id' => $document->id]);
             return [];
         }
@@ -92,14 +108,16 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
 
         // ── Chunk groups ──────────────────────────────────────────────────────
         $availableGroups = $this->buildChunkGroups($document);
-        $groups = $this->limitChunkGroups($availableGroups);
+        $groups          = $this->selectChunkGroups($availableGroups);
 
         Log::info('[GeminiExtractor] Iniciando extração.', [
-            'operation_id'      => $document->operation_id,
-            'document_id'       => $document->id,
-            'model'             => $this->model,
-            'chunk_groups'      => count($groups),
-            'available_groups'  => count($availableGroups),
+            'operation_id'           => $document->operation_id,
+            'document_id'            => $document->id,
+            'model'                  => $this->model,
+            'chunk_selection_mode'   => $this->chunkSelectionMode,
+            'total_chunks_available' => count($availableGroups),
+            'chunks_selected'        => count($groups),
+            'max_chunks_limit'       => $this->maxChunksPerDocument,
         ]);
 
         // ── Process each group ────────────────────────────────────────────────
@@ -140,16 +158,18 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
         $deduplicated = $this->deduplicate($allObligations);
 
         $this->extractionStats = [
-            'total_chunks'         => count($groups),
-            'available_chunks'     => count($availableGroups),
-            'max_chunks_per_document' => $this->maxChunksPerDocument,
-            'chunks_processed'     => $chunksProcessed,
-            'obligations_returned' => $rawCount,
-            'obligations_created'  => count($deduplicated),
-            'obligations_skipped'  => count($allSkipped),
-            'skipped_reasons'      => array_values($allSkipped),
-            'started_at'           => $startedAt->toIso8601String(),
-            'finished_at'          => now()->toIso8601String(),
+            'total_chunks_available'    => count($availableGroups),
+            'chunks_selected'           => count($groups),
+            'chunks_processed'          => $chunksProcessed,
+            'chunk_selection_mode'      => $this->chunkSelectionMode,
+            'max_chunks_limit'          => $this->maxChunksPerDocument,
+            'gemini_api_key_configured' => true,
+            'obligations_returned'      => $rawCount,
+            'obligations_created'       => count($deduplicated),
+            'obligations_skipped'       => count($allSkipped),
+            'skipped_reasons'           => array_values($allSkipped),
+            'started_at'                => $startedAt->toIso8601String(),
+            'finished_at'               => now()->toIso8601String(),
         ];
 
         Log::info('[GeminiExtractor] Extração concluída.', [
@@ -204,13 +224,54 @@ class GeminiObligationExtractor implements ObligationExtractorInterface
         return $groups ?: [$document->extracted_text ?? ''];
     }
 
-    private function limitChunkGroups(array $groups): array
+    /**
+     * Selects and orders chunk groups for processing.
+     *
+     * 'all'      → document order; apply max limit if set.
+     * 'relevant' → sort by obligation-keyword density before applying limit,
+     *              so the most obligation-dense sections are prioritised when
+     *              max_chunks_per_document restricts the total.
+     *
+     * When max_chunks_per_document is null ALL groups are returned.
+     */
+    private function selectChunkGroups(array $groups): array
     {
-        if ($this->maxChunksPerDocument <= 0) {
+        if ($this->chunkSelectionMode === 'relevant') {
+            usort($groups, fn (string $a, string $b) =>
+                $this->scoreChunkGroup($b) <=> $this->scoreChunkGroup($a)
+            );
+        }
+
+        if ($this->maxChunksPerDocument === null || $this->maxChunksPerDocument <= 0) {
             return $groups;
         }
 
         return array_slice($groups, 0, $this->maxChunksPerDocument);
+    }
+
+    /**
+     * Returns a normalised density score (hits per 1 000 chars) counting
+     * Portuguese legal-obligation keywords in the text.
+     * Used only when chunk_selection_mode = 'relevant'.
+     */
+    private function scoreChunkGroup(string $text): float
+    {
+        static $keywords = [
+            'deverá', 'deve', 'obrigação', 'obrigações', 'prazo', 'relatório',
+            'enviar', 'apresentar', 'entregar', 'comunicar', 'notificar',
+            'cláusula', 'dias', 'úteis', 'mensal', 'trimestral', 'semestral',
+            'anual', 'covenant', 'inadimplemento', 'vencimento', 'assembleia',
+            'assembléia', 'fiduciário', 'emissora', 'garantia', 'auditado',
+            'comunicação', 'informação', 'monitoramento', 'verificação',
+        ];
+
+        $lower = mb_strtolower($text, 'UTF-8');
+        $hits  = 0;
+        foreach ($keywords as $kw) {
+            $hits += substr_count($lower, $kw);
+        }
+
+        return $hits / max(1, strlen($text) / 1000);
     }
 
     private function splitRawText(string $text): array

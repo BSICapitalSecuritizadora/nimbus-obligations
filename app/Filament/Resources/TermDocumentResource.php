@@ -204,29 +204,37 @@ class TermDocumentResource extends Resource
     {
         $document = TermDocument::query()->findOrFail($record->getKey());
 
+        // Clear non-approved suggestions so the UI shows a clean slate immediately.
         ExtractedObligation::query()
             ->where('term_document_id', $document->id)
             ->whereIn('status', ['suggested', 'needs_review'])
             ->delete();
 
-        $metadata = $document->extraction_metadata ?? [];
-
+        // Reset to a fully clean metadata record — never merge with stale previous runs.
         $document->update([
             'extraction_provider' => config('obligations.extractor'),
             'extraction_model'    => static::configuredExtractorModel(),
             'extraction_error'    => null,
-            'extraction_metadata' => array_merge($metadata, [
-                'generation_status'     => 'queued',
-                'queued_at'             => now()->toIso8601String(),
-                'started_at'            => null,
-                'finished_at'           => null,
-                'last_error'            => null,
-                'suggestions_generated' => 0,
-                'chunks_processed'      => 0,
-                'obligations_returned'  => 0,
-                'obligations_skipped'   => 0,
-                'skipped_reasons'       => [],
-            ]),
+            'extraction_metadata' => [
+                'generation_status'         => 'queued',
+                'queued_at'                 => now()->toIso8601String(),
+                'started_at'                => null,
+                'finished_at'               => null,
+                'last_error'                => null,
+                // chunk / selection counters (filled in by the extractor)
+                'total_chunks_available'    => 0,
+                'chunks_selected'           => 0,
+                'chunks_processed'          => 0,
+                'chunk_selection_mode'      => config('obligations.gemini.chunk_selection_mode', 'all'),
+                'max_chunks_limit'          => config('obligations.gemini.max_chunks_per_document'),
+                'gemini_api_key_configured' => filled(config('obligations.gemini.api_key')),
+                // obligation counters (filled in by the extractor / service)
+                'suggestions_generated'     => 0,
+                'obligations_returned'      => 0,
+                'obligations_created'       => 0,
+                'obligations_skipped'       => 0,
+                'skipped_reasons'           => [],
+            ],
         ]);
 
         GenerateTermDocumentObligationsJob::dispatch($document->id);

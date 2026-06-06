@@ -113,16 +113,21 @@ class GenerateTermDocumentObligationsJob implements ShouldQueue
 
     private function hasFatalExtractorError(int $count, array $metadata): bool
     {
-        if ($count > 0 || empty($metadata['last_error'])) {
-            return false;
+        if ($count > 0) {
+            return false; // produced results → success
         }
 
-        if (! array_key_exists('chunks_processed', $metadata)) {
-            return true;
+        $lastError = (string) ($metadata['last_error'] ?? '');
+        if ($lastError === '') {
+            return false; // no error, zero results → completed with 0 suggestions
         }
 
-        return (int) $metadata['chunks_processed'] === 0
-            && (int) ($metadata['obligations_skipped'] ?? 0) > 0;
+        // Error present and zero results.
+        // Fatal only when no chunks were processed at all (setup/config failure such
+        // as a missing API key).  If chunks were processed but nothing survived
+        // validation, that is a non-fatal "no obligations found" outcome.
+        $chunksProcessed = (int) ($metadata['chunks_processed'] ?? 0);
+        return $chunksProcessed === 0;
     }
 
     private function safeErrorMessage(Throwable $e): string
