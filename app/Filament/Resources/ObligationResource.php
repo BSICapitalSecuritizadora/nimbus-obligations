@@ -6,6 +6,7 @@ use App\Filament\Resources\ObligationResource\Pages;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
 use App\Services\ObligationCategoryClassifier;
+use App\Services\NonComplianceRiskService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -62,6 +63,11 @@ class ObligationResource extends Resource
                     ->options(Obligation::statusOptions())
                     ->required()
                     ->default('em_dia'),
+
+                Forms\Components\Select::make('non_compliance_risk')
+                    ->label('Risco de Descumprimento')
+                    ->options(NonComplianceRiskService::getRiskOptions())
+                    ->helperText('Classificação do impacto potencial caso a obrigação não seja cumprida.'),
             ]),
 
             Forms\Components\Section::make('Detalhes')->columns(2)->schema([
@@ -83,6 +89,13 @@ class ObligationResource extends Resource
                 Forms\Components\TextInput::make('due_rule')->label('Regra de Vencimento'),
                 Forms\Components\DatePicker::make('due_date')->label('Data de Vencimento')->displayFormat('d/m/Y'),
                 Forms\Components\Textarea::make('required_evidence')->label('Evidência Exigida')->rows(2)->columnSpanFull(),
+
+                Forms\Components\Textarea::make('non_compliance_consequence')
+                    ->label('Consequência do Descumprimento')
+                    ->rows(2)
+                    ->columnSpanFull()
+                    ->helperText('Descreva de forma objetiva o possível impacto operacional, contratual ou regulatório.')
+                    ->placeholder('Pode gerar pendência operacional ou contratual a ser analisada.'),
             ]),
 
             Forms\Components\Section::make('Origem no Termo')->columns(2)->schema([
@@ -150,6 +163,13 @@ class ObligationResource extends Resource
                         default              => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('non_compliance_risk')
+                    ->label('Risco')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? NonComplianceRiskService::getRiskLabel($state) : '—')
+                    ->color(fn ($state) => NonComplianceRiskService::getRiskColor($state ?? ''))
+                    ->placeholder('—'),
+
                 Tables\Columns\BadgeColumn::make('priority')
                     ->label('Prioridade')
                     ->formatStateUsing(fn ($state) => Obligation::priorityOptions()[$state] ?? $state)
@@ -185,6 +205,10 @@ class ObligationResource extends Resource
                 Tables\Filters\SelectFilter::make('obligation_category')
                     ->label('Categoria')
                     ->options(ObligationCategoryClassifier::categoryOptions()),
+
+                Tables\Filters\SelectFilter::make('non_compliance_risk')
+                    ->label('Risco')
+                    ->options(NonComplianceRiskService::getRiskOptions()),
 
                 Tables\Filters\SelectFilter::make('obligation_type')
                     ->label('Tipo')

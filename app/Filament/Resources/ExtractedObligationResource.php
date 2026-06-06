@@ -7,6 +7,7 @@ use App\Models\ExtractedObligation;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
 use App\Services\ObligationCategoryClassifier;
+use App\Services\NonComplianceRiskService;
 use App\Services\ObligationStatusService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -257,6 +258,11 @@ class ExtractedObligationResource extends Resource
 
                         $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($full->due_date);
 
+                        $tempForRisk   = new Obligation(['priority' => $full->priority, 'obligation_category' => $full->obligation_category]);
+                        $riskSvc       = app(NonComplianceRiskService::class);
+                        $initialRisk   = $riskSvc->suggestRisk($tempForRisk);
+                        $initialConseq = $riskSvc->suggestConsequence($tempForRisk);
+
                         $obligation = Obligation::create([
                             'operation_id'            => $full->operation_id,
                             'extracted_obligation_id' => $full->id,
@@ -269,9 +275,11 @@ class ExtractedObligationResource extends Resource
                             'recurrence'              => $full->recurrence,
                             'due_rule'                => $full->due_rule,
                             'due_date'                => $full->due_date,
-                            'priority'                => $full->priority,
-                            'status'                  => $initialStatus,
-                            'required_evidence'       => $full->required_evidence,
+                            'priority'                   => $full->priority,
+                            'status'                     => $initialStatus,
+                            'non_compliance_risk'        => $initialRisk,
+                            'non_compliance_consequence' => $initialConseq,
+                            'required_evidence'          => $full->required_evidence,
                             'source_clause'           => $full->source_clause,
                             'source_page'             => $full->source_page,
                             'source_excerpt'          => $full->source_excerpt,

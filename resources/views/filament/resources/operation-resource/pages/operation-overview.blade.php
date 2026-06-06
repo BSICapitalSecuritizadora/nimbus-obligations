@@ -35,6 +35,20 @@ $obStatusLabel = fn ($s) => match ($s) {
     'pendente_evidencia' => 'Pend. Evidência',
     default              => $s,
 };
+$riskColor = fn ($r) => match ($r) {
+    'critico' => 'danger',
+    'alto'    => 'warning',
+    'medio'   => 'info',
+    'baixo'   => 'success',
+    default   => 'gray',
+};
+$riskLabel = fn ($r) => match ($r) {
+    'critico' => 'Crítico',
+    'alto'    => 'Alto',
+    'medio'   => 'Médio',
+    'baixo'   => 'Baixo',
+    default   => ($r ?? '—'),
+};
 $procStatusColor = fn ($s) => match ($s) {
     'processed'  => 'success',
     'processing' => 'warning',
@@ -296,7 +310,7 @@ $procStatusLabel = fn ($s) => match ($s) {
 </div>
 
 {{-- Secondary status counters: em_analise / waiver / pendente_evidencia --}}
-<div class="grid grid-cols-3 gap-3 mt-3">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
     <div class="rounded-lg bg-purple-50/40 dark:bg-purple-950/20 px-4 py-2.5 ring-1 ring-purple-100 dark:ring-purple-900/30 flex items-center justify-between">
         <div>
             <p class="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">Em Análise</p>
@@ -317,6 +331,13 @@ $procStatusLabel = fn ($s) => match ($s) {
             <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $stats['pendente_evidencia_count'] }}</p>
         </div>
         <x-filament::icon icon="heroicon-o-paper-clip" class="h-5 w-5 text-cyan-500 dark:text-cyan-500 shrink-0" />
+    </div>
+    <div class="rounded-lg bg-red-50/40 dark:bg-red-950/20 px-4 py-2.5 ring-1 ring-red-100 dark:ring-red-900/30 flex items-center justify-between">
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 mb-0.5">Risco Crítico</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $stats['critical_risk_count'] }}</p>
+        </div>
+        <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5 text-red-400 dark:text-red-500 shrink-0" />
     </div>
 </div>
 
@@ -346,6 +367,7 @@ $procStatusLabel = fn ($s) => match ($s) {
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Área</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Vencimento</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Status</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Risco</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Prioridade</th>
                         <th class="py-3 text-right font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Ações</th>
                     </tr>
@@ -375,6 +397,15 @@ $procStatusLabel = fn ($s) => match ($s) {
                                 <x-filament::badge :color="$obStatusColor($ob['status'])">
                                     {{ $obStatusLabel($ob['status']) }}
                                 </x-filament::badge>
+                            </td>
+                            <td class="px-3 py-3 whitespace-nowrap">
+                                @if(!empty($ob['non_compliance_risk']))
+                                    <x-filament::badge :color="$riskColor($ob['non_compliance_risk'])">
+                                        {{ $riskLabel($ob['non_compliance_risk']) }}
+                                    </x-filament::badge>
+                                @else
+                                    <span class="text-gray-400 text-xs">—</span>
+                                @endif
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap">
                                 <x-filament::badge :color="$priorityColor($ob['priority'])">

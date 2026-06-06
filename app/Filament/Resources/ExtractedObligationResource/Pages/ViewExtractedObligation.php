@@ -6,6 +6,7 @@ use App\Filament\Resources\ExtractedObligationResource;
 use App\Models\ExtractedObligation;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
+use App\Services\NonComplianceRiskService;
 use App\Services\ObligationStatusService;
 use Filament\Actions;
 use Filament\Infolists;
@@ -38,6 +39,11 @@ class ViewExtractedObligation extends ViewRecord
 
                     $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($record->due_date);
 
+                    $tempForRisk   = new Obligation(['priority' => $record->priority, 'obligation_category' => $record->obligation_category]);
+                    $riskSvc       = app(NonComplianceRiskService::class);
+                    $initialRisk   = $riskSvc->suggestRisk($tempForRisk);
+                    $initialConseq = $riskSvc->suggestConsequence($tempForRisk);
+
                     $obligation = Obligation::create([
                         'operation_id'            => $record->operation_id,
                         'extracted_obligation_id' => $record->id,
@@ -50,9 +56,11 @@ class ViewExtractedObligation extends ViewRecord
                         'recurrence'              => $record->recurrence,
                         'due_rule'                => $record->due_rule,
                         'due_date'                => $record->due_date,
-                        'priority'                => $record->priority,
-                        'status'                  => $initialStatus,
-                        'required_evidence'       => $record->required_evidence,
+                        'priority'                   => $record->priority,
+                        'status'                     => $initialStatus,
+                        'non_compliance_risk'        => $initialRisk,
+                        'non_compliance_consequence' => $initialConseq,
+                        'required_evidence'          => $record->required_evidence,
                         'source_clause'           => $record->source_clause,
                         'source_page'             => $record->source_page,
                         'source_excerpt'          => $record->source_excerpt,

@@ -66,7 +66,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <p class="text-4xl font-extrabold text-emerald-400">{{ $stats['on_track'] }}</p>
+                <p class="text-4xl font-extrabold text-emerald-400">{{ $stats['em_dia'] }}</p>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">dentro do prazo</p>
             </div>
         </div>
@@ -80,7 +80,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <p class="text-4xl font-extrabold text-amber-400">{{ $stats['due_soon'] }}</p>
+                <p class="text-4xl font-extrabold text-amber-400">{{ $stats['a_vencer'] }}</p>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">atenção necessária</p>
             </div>
         </div>
@@ -94,7 +94,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <p class="text-4xl font-extrabold text-red-400">{{ $stats['overdue'] }}</p>
+                <p class="text-4xl font-extrabold text-red-400">{{ $stats['vencida'] }}</p>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">em atraso</p>
             </div>
         </div>
@@ -108,7 +108,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <p class="text-4xl font-extrabold text-cyan-400">{{ $stats['completed'] }}</p>
+                <p class="text-4xl font-extrabold text-cyan-400">{{ $stats['concluida'] }}</p>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">finalizadas</p>
             </div>
         </div>

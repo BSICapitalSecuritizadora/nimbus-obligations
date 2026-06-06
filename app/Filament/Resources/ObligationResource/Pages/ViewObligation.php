@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ObligationResource\Pages;
 use App\Filament\Resources\ObligationResource;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
+use App\Services\NonComplianceRiskService;
 use App\Services\ObligationCategoryClassifier;
 use Filament\Actions;
 use Filament\Infolists;
@@ -127,6 +128,12 @@ class ViewObligation extends ViewRecord
                     ->badge()
                     ->color(fn ($state) => $state ? ObligationCategoryClassifier::categoryColor($state) : 'gray')
                     ->placeholder('—'),
+                Infolists\Components\TextEntry::make('non_compliance_risk')
+                    ->label('Risco de Descumprimento')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? NonComplianceRiskService::getRiskLabel($state) : '—')
+                    ->color(fn ($state) => NonComplianceRiskService::getRiskColor($state ?? ''))
+                    ->placeholder('—'),
                 Infolists\Components\TextEntry::make('status')
                     ->label('Status Operacional')
                     ->formatStateUsing(fn ($state) => Obligation::statusOptions()[$state] ?? $state)
@@ -163,6 +170,11 @@ class ViewObligation extends ViewRecord
                 Infolists\Components\TextEntry::make('due_rule')->label('Regra de Vencimento')->placeholder('—'),
                 Infolists\Components\TextEntry::make('due_date')->label('Data de Vencimento')->date('d/m/Y')->placeholder('—'),
                 Infolists\Components\TextEntry::make('required_evidence')->label('Evidência Exigida')->placeholder('—')->columnSpanFull(),
+                Infolists\Components\TextEntry::make('non_compliance_consequence')
+                    ->label('Consequência do Descumprimento')
+                    ->placeholder('—')
+                    ->columnSpanFull()
+                    ->prose(),
             ]),
 
             Infolists\Components\Section::make('Origem no Termo')->columns(2)->schema([

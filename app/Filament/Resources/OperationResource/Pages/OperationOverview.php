@@ -15,6 +15,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use App\Services\NonComplianceRiskService;
 use App\Services\ObligationStatusService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -59,9 +60,13 @@ class OperationOverview extends Page
         $overdueCount   = Obligation::where('operation_id', $id)->where('status', 'vencida')->count();
         $dueSoonCount   = Obligation::where('operation_id', $id)->where('status', 'a_vencer')->count();
         $completedCount = Obligation::where('operation_id', $id)->where('status', 'concluida')->count();
-        $emAnaliseCount = Obligation::where('operation_id', $id)->where('status', 'em_analise')->count();
-        $waiverCount    = Obligation::where('operation_id', $id)->where('status', 'waiver')->count();
+        $emAnaliseCount   = Obligation::where('operation_id', $id)->where('status', 'em_analise')->count();
+        $waiverCount      = Obligation::where('operation_id', $id)->where('status', 'waiver')->count();
         $pendingEvidCount = Obligation::where('operation_id', $id)->where('status', 'pendente_evidencia')->count();
+        $criticalRiskCount = Obligation::where('operation_id', $id)
+                                ->where('non_compliance_risk', 'critico')
+                                ->whereNotIn('status', ['concluida', 'waiver', 'nao_aplicavel'])
+                                ->count();
         $docsCount      = TermDocument::where('operation_id', $id)->count();
         $lastAi         = TermDocument::where('operation_id', $id)
                               ->whereNotNull('processed_at')
@@ -78,6 +83,7 @@ class OperationOverview extends Page
             'em_analise_count'         => $emAnaliseCount,
             'waiver_count'             => $waiverCount,
             'pendente_evidencia_count' => $pendingEvidCount,
+            'critical_risk_count'      => $criticalRiskCount,
             'term_documents_count'     => $docsCount,
             'last_ai_processing'       => $lastAi ? Carbon::parse($lastAi)->format('d/m/Y H:i') : '—',
         ];
@@ -92,7 +98,7 @@ class OperationOverview extends Page
             } else {
                 $mainPoint = "{$criticalCount} obrigação(ões) crítica(s) pendente(s) de resolução.";
             }
-        } elseif ($dueSoonCount > 0 || $suggestedCount > 0 || $pendingEvidCount > 0) {
+        } elseif ($criticalRiskCount > 0 || $dueSoonCount > 0 || $suggestedCount > 0 || $pendingEvidCount > 0) {
             $healthStatus = 'attention';
             if ($dueSoonCount > 0 && $suggestedCount > 0) {
                 $mainPoint = "{$dueSoonCount} obrigação(ões) a vencer em breve e {$suggestedCount} sugestão(ões) aguardando revisão.";
@@ -152,7 +158,7 @@ class OperationOverview extends Page
 
         // ── Approved obligations — most urgent first (Limit 5) ────────────────
         $this->approvedObs = Obligation::where('operation_id', $id)
-            ->select(['id', 'title', 'obligation_type', 'obligation_category', 'responsible_area', 'due_date', 'status', 'priority'])
+            ->select(['id', 'title', 'obligation_type', 'obligation_category', 'responsible_area', 'due_date', 'status', 'priority', 'non_compliance_risk'])
             ->orderByRaw("CASE WHEN status = 'vencida' THEN 0 WHEN status = 'a_vencer' THEN 1 ELSE 2 END")
             ->orderBy('due_date')
             ->limit(5)
@@ -229,6 +235,11 @@ class OperationOverview extends Page
 
         $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($full->due_date);
 
+        $tempForRisk   = new Obligation(['priority' => $full->priority, 'obligation_category' => $full->obligation_category]);
+        $riskSvc       = app(NonComplianceRiskService::class);
+        $initialRisk   = $riskSvc->suggestRisk($tempForRisk);
+        $initialConseq = $riskSvc->suggestConsequence($tempForRisk);
+
         $obligation = Obligation::create([
             'operation_id'            => $full->operation_id,
             'extracted_obligation_id' => $full->id,
@@ -241,12 +252,14 @@ class OperationOverview extends Page
             'recurrence'              => $full->recurrence,
             'due_rule'                => $full->due_rule,
             'due_date'                => $full->due_date,
-            'priority'                => $full->priority,
-            'status'                  => $initialStatus,
-            'required_evidence'       => $full->required_evidence,
-            'source_clause'           => $full->source_clause,
-            'source_page'             => $full->source_page,
-            'source_excerpt'          => $full->source_excerpt,
+            'priority'                    => $full->priority,
+            'status'                      => $initialStatus,
+            'non_compliance_risk'         => $initialRisk,
+            'non_compliance_consequence'  => $initialConseq,
+            'required_evidence'           => $full->required_evidence,
+            'source_clause'               => $full->source_clause,
+            'source_page'                 => $full->source_page,
+            'source_excerpt'              => $full->source_excerpt,
         ]);
 
         ObligationHistory::create([

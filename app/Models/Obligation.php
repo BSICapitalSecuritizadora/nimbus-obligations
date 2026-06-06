@@ -14,8 +14,9 @@ class Obligation extends Model
     protected $fillable = [
         'operation_id', 'extracted_obligation_id', 'title', 'obligation_type', 'obligation_category',
         'description', 'responsible_party', 'responsible_area', 'recurrence',
-        'due_rule', 'due_date', 'priority', 'status', 'required_evidence',
-        'source_clause', 'source_page', 'source_excerpt', 'notes',
+        'due_rule', 'due_date', 'priority', 'status',
+        'non_compliance_risk', 'non_compliance_consequence',
+        'required_evidence', 'source_clause', 'source_page', 'source_excerpt', 'notes',
     ];
 
     protected $casts = [

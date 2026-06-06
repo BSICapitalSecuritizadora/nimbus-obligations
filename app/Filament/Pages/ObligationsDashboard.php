@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Obligation;
 use App\Models\Operation;
+use App\Services\NonComplianceRiskService;
 use App\Services\ObligationCategoryClassifier;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -102,6 +103,13 @@ class ObligationsDashboard extends Page implements HasTable
                         default              => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('non_compliance_risk')
+                    ->label('Risco')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? NonComplianceRiskService::getRiskLabel($state) : '—')
+                    ->color(fn ($state) => NonComplianceRiskService::getRiskColor($state ?? ''))
+                    ->placeholder('—'),
+
                 Tables\Columns\BadgeColumn::make('priority')
                     ->label('Prioridade')
                     ->formatStateUsing(fn ($state) => Obligation::priorityOptions()[$state] ?? $state)
@@ -132,6 +140,10 @@ class ObligationsDashboard extends Page implements HasTable
                 Tables\Filters\SelectFilter::make('responsible_area')
                     ->label('Área Responsável')
                     ->options(fn () => Obligation::distinct()->pluck('responsible_area', 'responsible_area')->filter()->toArray()),
+
+                Tables\Filters\SelectFilter::make('non_compliance_risk')
+                    ->label('Risco')
+                    ->options(NonComplianceRiskService::getRiskOptions()),
 
                 Tables\Filters\SelectFilter::make('obligation_category')
                     ->label('Categoria')
