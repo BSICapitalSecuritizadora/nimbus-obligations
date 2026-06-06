@@ -173,6 +173,11 @@ class OperationResource extends Resource
                     ->options(Operation::statusOptions()),
             ])
             ->actions([
+                Tables\Actions\Action::make('overview')
+                    ->label('Visão da Operação')
+                    ->icon('heroicon-o-chart-bar-square')
+                    ->color('primary')
+                    ->url(fn (Operation $record) => static::getUrl('overview', ['record' => $record])),
                 Tables\Actions\ViewAction::make()->label('Ver'),
                 Tables\Actions\EditAction::make()->label('Editar'),
             ])
@@ -194,10 +199,11 @@ class OperationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListOperations::route('/'),
-            'create' => Pages\CreateOperation::route('/create'),
-            'view'   => Pages\ViewOperation::route('/{record}'),
-            'edit'   => Pages\EditOperation::route('/{record}/edit'),
+            'index'    => Pages\ListOperations::route('/'),
+            'create'   => Pages\CreateOperation::route('/create'),
+            'view'     => Pages\ViewOperation::route('/{record}'),
+            'edit'     => Pages\EditOperation::route('/{record}/edit'),
+            'overview' => Pages\OperationOverview::route('/{record}/overview'),
         ];
     }
 }

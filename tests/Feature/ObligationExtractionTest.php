@@ -658,7 +658,7 @@ class ObligationExtractionTest extends TestCase
         $meta = $document->extraction_metadata;
 
         $this->assertSame('gemini', $document->extraction_provider);
-        $this->assertArrayHasKey('total_chunks', $meta);
+        $this->assertArrayHasKey('total_chunks_available', $meta);
         $this->assertArrayHasKey('chunks_processed', $meta);
         $this->assertArrayHasKey('obligations_returned', $meta);
         $this->assertArrayHasKey('obligations_created', $meta);

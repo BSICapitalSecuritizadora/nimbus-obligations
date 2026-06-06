@@ -29,6 +29,12 @@ class ViewOperation extends ViewRecord implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('overview')
+                ->label('Visão da Operação')
+                ->icon('heroicon-o-chart-bar-square')
+                ->color('primary')
+                ->url(fn () => OperationResource::getUrl('overview', ['record' => $this->record])),
+
             Actions\EditAction::make()->label('Editar'),
         ];
     }
