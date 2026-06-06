@@ -12,21 +12,25 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ExtractedObligationResource extends Resource
 {
     protected static ?string $model = ExtractedObligation::class;
 
-    protected static ?string $navigationIcon  = 'heroicon-o-light-bulb';
-    protected static ?string $navigationGroup = 'Obrigações';
-    protected static ?string $navigationLabel = 'Obrigações Sugeridas';
-    protected static ?string $modelLabel      = 'Obrigação Sugerida';
+    protected static ?string $navigationIcon   = 'heroicon-o-light-bulb';
+    protected static ?string $navigationGroup  = 'Obrigações';
+    protected static ?string $navigationLabel  = 'Obrigações Sugeridas';
+    protected static ?string $modelLabel       = 'Obrigação Sugerida';
     protected static ?string $pluralModelLabel = 'Obrigações Sugeridas';
-    protected static ?int $navigationSort     = 20;
+    protected static ?int    $navigationSort   = 20;
+
+    // ── Navigation badge ──────────────────────────────────────────────────────
+    // Single COUNT query only — never loads records or relationships.
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('status', 'suggested')->count();
+        $count = ExtractedObligation::where('status', 'suggested')->count();
 
         return $count > 0 ? (string) $count : null;
     }
@@ -35,6 +39,8 @@ class ExtractedObligationResource extends Resource
     {
         return 'warning';
     }
+
+    // ── Form (edit page) ──────────────────────────────────────────────────────
 
     public static function form(Form $form): Form
     {
@@ -74,9 +80,12 @@ class ExtractedObligationResource extends Resource
                 Forms\Components\Select::make('recurrence')
                     ->label('Periodicidade')
                     ->options([
-                        'Mensal' => 'Mensal', 'Bimestral' => 'Bimestral',
-                        'Trimestral' => 'Trimestral', 'Semestral' => 'Semestral',
-                        'Anual' => 'Anual', 'Eventual' => 'Eventual',
+                        'Mensal'      => 'Mensal',
+                        'Bimestral'   => 'Bimestral',
+                        'Trimestral'  => 'Trimestral',
+                        'Semestral'   => 'Semestral',
+                        'Anual'       => 'Anual',
+                        'Eventual'    => 'Eventual',
                     ]),
                 Forms\Components\TextInput::make('due_rule')->label('Regra de Vencimento'),
                 Forms\Components\DatePicker::make('due_date')->label('Data de Vencimento')->displayFormat('d/m/Y'),
@@ -100,9 +109,23 @@ class ExtractedObligationResource extends Resource
         ]);
     }
 
+    // ── Table (list page) ─────────────────────────────────────────────────────
+
     public static function table(Table $table): Table
     {
         return $table
+            // ── Restrict SELECT to lightweight columns only ─────────────────────
+            // source_excerpt, description, review_notes and due_rule are large text
+            // fields not needed in the list. They are loaded on-demand in detail/edit
+            // views and inside action closures via $record->fresh().
+            ->modifyQueryUsing(fn (Builder $q) => $q->select([
+                'id', 'operation_id', 'term_document_id',
+                'title', 'obligation_type', 'status', 'priority',
+                'responsible_area', 'recurrence',
+                'confidence_score', 'source_clause',
+                'ai_provider', 'ai_model',
+                'reviewed_by', 'reviewed_at', 'created_at',
+            ]))
             ->columns([
                 Tables\Columns\TextColumn::make('operation.name')
                     ->label('Operação')
@@ -113,7 +136,8 @@ class ExtractedObligationResource extends Resource
                 Tables\Columns\TextColumn::make('title')
                     ->label('Título')
                     ->searchable()
-                    ->wrap(),
+                    ->limit(60)
+                    ->tooltip(fn ($record) => $record->title),
 
                 Tables\Columns\TextColumn::make('obligation_type')
                     ->label('Tipo')
@@ -123,6 +147,11 @@ class ExtractedObligationResource extends Resource
                 Tables\Columns\TextColumn::make('responsible_area')
                     ->label('Área')
                     ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('recurrence')
+                    ->label('Periodicidade')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\BadgeColumn::make('priority')
                     ->label('Prioridade')
@@ -146,17 +175,41 @@ class ExtractedObligationResource extends Resource
 
                 Tables\Columns\TextColumn::make('confidence_score')
                     ->label('Confiança')
-                    ->formatStateUsing(fn ($state) => $state ? round($state * 100).'%' : '—')
+                    ->formatStateUsing(fn ($state) => $state !== null ? round($state * 100).'%' : '—')
                     ->badge()
                     ->color(fn ($state) => match (true) {
-                        $state >= 0.80 => 'success',
-                        $state >= 0.60 => 'warning',
-                        default        => 'danger',
+                        $state === null  => 'gray',
+                        $state >= 0.80   => 'success',
+                        $state >= 0.60   => 'warning',
+                        default          => 'danger',
                     }),
 
                 Tables\Columns\TextColumn::make('source_clause')
-                    ->label('Referência no Termo')
-                    ->placeholder('—'),
+                    ->label('Cláusula')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('ai_provider')
+                    ->label('Provedor IA')
+                    ->badge()
+                    ->color(fn ($state) => match ($state) {
+                        'gemini' => 'primary',
+                        'mock'   => 'gray',
+                        default  => 'gray',
+                    })
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('ai_model')
+                    ->label('Modelo IA')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Criado em')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('operation')
@@ -180,23 +233,27 @@ class ExtractedObligationResource extends Resource
                     ->modalHeading('Aprovar Obrigação')
                     ->modalDescription('Esta sugestão será convertida em uma obrigação ativa. Confirma?')
                     ->action(function (ExtractedObligation $record) {
+                        // The list query only loads lightweight columns; reload the full
+                        // record to access source_excerpt, description, etc.
+                        $full = $record->fresh();
+
                         $obligation = Obligation::create([
-                            'operation_id'           => $record->operation_id,
-                            'extracted_obligation_id' => $record->id,
-                            'title'                  => $record->title,
-                            'obligation_type'         => $record->obligation_type,
-                            'description'            => $record->description,
-                            'responsible_party'       => $record->responsible_party,
-                            'responsible_area'        => $record->responsible_area,
-                            'recurrence'             => $record->recurrence,
-                            'due_rule'               => $record->due_rule,
-                            'due_date'               => $record->due_date,
-                            'priority'               => $record->priority,
-                            'status'                 => 'on_track',
-                            'required_evidence'       => $record->required_evidence,
-                            'source_clause'          => $record->source_clause,
-                            'source_page'            => $record->source_page,
-                            'source_excerpt'         => $record->source_excerpt,
+                            'operation_id'            => $full->operation_id,
+                            'extracted_obligation_id' => $full->id,
+                            'title'                   => $full->title,
+                            'obligation_type'         => $full->obligation_type,
+                            'description'             => $full->description,
+                            'responsible_party'       => $full->responsible_party,
+                            'responsible_area'        => $full->responsible_area,
+                            'recurrence'              => $full->recurrence,
+                            'due_rule'                => $full->due_rule,
+                            'due_date'                => $full->due_date,
+                            'priority'                => $full->priority,
+                            'status'                  => 'on_track',
+                            'required_evidence'       => $full->required_evidence,
+                            'source_clause'           => $full->source_clause,
+                            'source_page'             => $full->source_page,
+                            'source_excerpt'          => $full->source_excerpt,
                         ]);
 
                         ObligationHistory::create([
@@ -233,7 +290,9 @@ class ExtractedObligationResource extends Resource
                 Tables\Actions\EditAction::make()->label('Editar'),
                 Tables\Actions\ViewAction::make()->label('Ver'),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->paginated([10, 25, 50])
+            ->defaultPaginationPageOption(25);
     }
 
     public static function getRelations(): array

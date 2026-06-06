@@ -14,6 +14,12 @@ use App\Models\TermDocument;
  */
 class MockObligationExtractor implements ObligationExtractorInterface
 {
+    private ?string $lastError = null;
+
+    public function getProviderName(): string { return 'mock'; }
+    public function getModelName(): string    { return 'keyword-patterns'; }
+    public function getLastError(): ?string   { return $this->lastError; }
+
     /**
      * Keyword → obligation template map.
      * Each entry: [ keywords[], template[] ]

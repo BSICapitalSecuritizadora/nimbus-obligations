@@ -3,19 +3,16 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TermDocumentResource\Pages;
+use App\Jobs\GenerateTermDocumentObligationsJob;
 use App\Jobs\ProcessTermDocumentJob;
 use App\Models\ExtractedObligation;
-use App\Models\Operation;
 use App\Models\TermDocument;
-use App\Services\ObligationExtractionService;
-use App\Services\TermDocumentTextExtractor;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Storage;
 
 class TermDocumentResource extends Resource
 {
@@ -97,6 +94,56 @@ class TermDocumentResource extends Resource
                     ->badge()
                     ->color('warning'),
 
+                Tables\Columns\TextColumn::make('obligation_generation_status')
+                    ->label('Status IA')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? (TermDocument::obligationGenerationStatusOptions()[$state] ?? $state) : '—')
+                    ->color(fn ($state) => match ($state) {
+                        'queued'     => 'gray',
+                        'processing' => 'warning',
+                        'completed'  => 'success',
+                        'failed'     => 'danger',
+                        default      => 'gray',
+                    })
+                    ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('extraction_provider')
+                    ->label('Provedor IA')
+                    ->badge()
+                    ->color(fn ($state) => match ($state) {
+                        'gemini' => 'primary',
+                        'mock'   => 'gray',
+                        default  => 'gray',
+                    })
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('extraction_model')
+                    ->label('Modelo IA')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('obligation_chunks_processed')
+                    ->label('Chunks IA')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('obligation_suggestions_created')
+                    ->label('Criadas IA')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('obligation_skipped_items')
+                    ->label('Descartadas IA')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('obligation_extraction_error')
+                    ->label('Erro IA')
+                    ->limit(80)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Upload em')
                     ->date('d/m/Y')
@@ -118,9 +165,9 @@ class TermDocumentResource extends Resource
                     ->color('warning')
                     ->requiresConfirmation()
                     ->action(function (TermDocument $record) {
-                        ProcessTermDocumentJob::dispatchSync($record);
+                        ProcessTermDocumentJob::dispatch($record);
                         Notification::make()
-                            ->title('Documento processado com sucesso!')
+                            ->title('Processamento do documento iniciado em segundo plano.')
                             ->success()
                             ->send();
                     })
@@ -134,11 +181,10 @@ class TermDocumentResource extends Resource
                     ->modalHeading('Gerar Obrigações Sugeridas')
                     ->modalDescription('Isso irá analisar o texto extraído e gerar sugestões de obrigações para revisão. Sugestões anteriores ainda não aprovadas serão removidas.')
                     ->action(function (TermDocument $record) {
-                        $service = app(ObligationExtractionService::class);
-                        $count   = $service->extractAndSave($record);
+                        static::queueObligationGeneration($record);
+
                         Notification::make()
-                            ->title("$count obrigações sugeridas geradas!")
-                            ->body('Acesse "Obrigações Sugeridas" para revisar.')
+                            ->title('Geração de obrigações iniciada em segundo plano.')
                             ->success()
                             ->send();
                     })
@@ -152,6 +198,47 @@ class TermDocumentResource extends Resource
     public static function getRelations(): array
     {
         return [];
+    }
+
+    public static function queueObligationGeneration(TermDocument $record): void
+    {
+        $document = TermDocument::query()->findOrFail($record->getKey());
+
+        ExtractedObligation::query()
+            ->where('term_document_id', $document->id)
+            ->whereIn('status', ['suggested', 'needs_review'])
+            ->delete();
+
+        $metadata = $document->extraction_metadata ?? [];
+
+        $document->update([
+            'extraction_provider' => config('obligations.extractor'),
+            'extraction_model'    => static::configuredExtractorModel(),
+            'extraction_error'    => null,
+            'extraction_metadata' => array_merge($metadata, [
+                'generation_status'     => 'queued',
+                'queued_at'             => now()->toIso8601String(),
+                'started_at'            => null,
+                'finished_at'           => null,
+                'last_error'            => null,
+                'suggestions_generated' => 0,
+                'chunks_processed'      => 0,
+                'obligations_returned'  => 0,
+                'obligations_skipped'   => 0,
+                'skipped_reasons'       => [],
+            ]),
+        ]);
+
+        GenerateTermDocumentObligationsJob::dispatch($document->id);
+    }
+
+    private static function configuredExtractorModel(): ?string
+    {
+        return match (config('obligations.extractor')) {
+            'gemini' => config('obligations.gemini.model'),
+            'mock'   => 'keyword-patterns',
+            default  => null,
+        };
     }
 
     public static function getPages(): array

@@ -15,11 +15,13 @@ class TermDocument extends Model
         'operation_id', 'original_filename', 'stored_path', 'mime_type',
         'file_size', 'file_hash', 'processing_status', 'extracted_text',
         'extraction_error', 'uploaded_by', 'processed_at',
+        'extraction_provider', 'extraction_model', 'extraction_metadata',
     ];
 
     protected $casts = [
-        'processed_at' => 'datetime',
-        'file_size'    => 'integer',
+        'processed_at'        => 'datetime',
+        'file_size'           => 'integer',
+        'extraction_metadata' => 'array',
     ];
 
     public static function processingStatusOptions(): array
@@ -32,9 +34,56 @@ class TermDocument extends Model
         ];
     }
 
+    public static function obligationGenerationStatusOptions(): array
+    {
+        return [
+            'queued'     => 'Na fila',
+            'processing' => 'Processando',
+            'completed'  => 'Concluído',
+            'failed'     => 'Falhou',
+        ];
+    }
+
     public function processingStatusLabel(): string
     {
         return static::processingStatusOptions()[$this->processing_status] ?? $this->processing_status;
+    }
+
+    public function getObligationGenerationStatusAttribute(): ?string
+    {
+        $status = $this->extraction_metadata['generation_status'] ?? null;
+
+        return match ($status) {
+            'generating' => 'processing',
+            'done'       => 'completed',
+            default      => $status,
+        };
+    }
+
+    public function getObligationSuggestionsCreatedAttribute(): ?int
+    {
+        return $this->extraction_metadata['suggestions_generated']
+            ?? $this->extraction_metadata['obligations_created']
+            ?? null;
+    }
+
+    public function getObligationChunksProcessedAttribute(): ?int
+    {
+        return $this->extraction_metadata['chunks_processed'] ?? null;
+    }
+
+    public function getObligationSkippedItemsAttribute(): ?int
+    {
+        return $this->extraction_metadata['obligations_skipped'] ?? null;
+    }
+
+    public function getObligationExtractionErrorAttribute(): ?string
+    {
+        if ($this->obligation_generation_status !== 'failed') {
+            return null;
+        }
+
+        return $this->extraction_metadata['last_error'] ?? $this->extraction_error;
     }
 
     public function isProcessed(): bool

@@ -18,6 +18,7 @@ class ExtractedObligation extends Model
         'status', 'required_evidence', 'source_clause', 'source_page',
         'source_excerpt', 'confidence_score', 'review_notes',
         'reviewed_by', 'reviewed_at',
+        'ai_provider', 'ai_model',
     ];
 
     protected $casts = [

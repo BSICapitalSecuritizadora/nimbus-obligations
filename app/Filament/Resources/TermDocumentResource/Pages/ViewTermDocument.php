@@ -5,7 +5,6 @@ namespace App\Filament\Resources\TermDocumentResource\Pages;
 use App\Filament\Resources\TermDocumentResource;
 use App\Jobs\ProcessTermDocumentJob;
 use App\Models\TermDocument;
-use App\Services\ObligationExtractionService;
 use Filament\Actions;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
@@ -25,9 +24,8 @@ class ViewTermDocument extends ViewRecord
                 ->color('warning')
                 ->requiresConfirmation()
                 ->action(function () {
-                    ProcessTermDocumentJob::dispatchSync($this->record);
-                    $this->refreshFormData(['processing_status', 'extracted_text', 'processed_at']);
-                    Notification::make()->title('Documento processado!')->success()->send();
+                    ProcessTermDocumentJob::dispatch($this->record);
+                    Notification::make()->title('Processamento do documento iniciado em segundo plano.')->success()->send();
                 })
                 ->visible(fn () => in_array($this->record->processing_status, ['pending', 'failed'])),
 
@@ -37,13 +35,19 @@ class ViewTermDocument extends ViewRecord
                 ->color('primary')
                 ->requiresConfirmation()
                 ->modalHeading('Gerar Obrigações Sugeridas')
-                ->modalDescription('Isso irá analisar o texto extraído e gerar sugestões de obrigações para revisão. Sugestões anteriores (não aprovadas) serão removidas.')
+                ->modalDescription('Isso irá analisar o texto extraído e gerar sugestões de obrigações para revisão. Sugestões anteriores (não aprovadas) serão removidas. O processo continuará em segundo plano.')
                 ->action(function () {
-                    $service = app(ObligationExtractionService::class);
-                    $count   = $service->extractAndSave($this->record);
+                    TermDocumentResource::queueObligationGeneration($this->record);
+                    $this->record->refresh();
+                    $this->refreshFormData([
+                        'extraction_metadata',
+                        'extraction_provider',
+                        'extraction_model',
+                        'extraction_error',
+                    ]);
+
                     Notification::make()
-                        ->title("$count obrigações sugeridas geradas!")
-                        ->body('Acesse "Obrigações Sugeridas" para revisar e aprovar.')
+                        ->title('Geração de obrigações iniciada em segundo plano.')
                         ->success()
                         ->send();
                 })
@@ -73,6 +77,110 @@ class ViewTermDocument extends ViewRecord
                     Infolists\Components\TextEntry::make('uploaded_by')->label('Enviado por')->placeholder('—'),
                     Infolists\Components\TextEntry::make('processed_at')->label('Processado em')->dateTime('d/m/Y H:i')->placeholder('—'),
                     Infolists\Components\TextEntry::make('extraction_error')->label('Erro de Extração')->placeholder('Nenhum')->color('danger'),
+                ]),
+
+            Infolists\Components\Section::make('Extração de Obrigações por IA')
+                ->columns(3)
+                ->collapsed()
+                ->schema([
+                    Infolists\Components\TextEntry::make('extraction_metadata.generation_status')
+                        ->label('Status da Geração')
+                        ->badge()
+                        ->formatStateUsing(fn ($state) => match ($state) {
+                            'queued'     => 'Na fila',
+                            'processing' => 'Processando',
+                            'completed'  => 'Concluído',
+                            'failed'     => 'Falhou',
+                            'generating' => 'Processando',
+                            'done'       => 'Concluído',
+                            default      => '—',
+                        })
+                        ->color(fn ($state) => match ($state) {
+                            'queued'     => 'gray',
+                            'processing' => 'warning',
+                            'completed'  => 'success',
+                            'failed'     => 'danger',
+                            'generating' => 'warning',
+                            'done'       => 'success',
+                            default      => 'gray',
+                        })
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_provider')
+                        ->label('Provedor')
+                        ->badge()
+                        ->color(fn ($state) => match ($state) {
+                            'gemini' => 'primary',
+                            'mock'   => 'gray',
+                            default  => 'gray',
+                        })
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_model')
+                        ->label('Modelo')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.suggestions_generated')
+                        ->label('Sugestões Criadas')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.total_chunks')
+                        ->label('Total de Segmentos')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.chunks_processed')
+                        ->label('Segmentos Processados')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.obligations_returned')
+                        ->label('Retornadas pela IA')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.obligations_skipped')
+                        ->label('Descartadas (validação)')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.started_at')
+                        ->label('Iniciado em')
+                        ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('d/m/Y H:i:s') : '—')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.finished_at')
+                        ->label('Concluído em')
+                        ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('d/m/Y H:i:s') : '—')
+                        ->placeholder('—'),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.last_error')
+                        ->label('Erro na Extração IA')
+                        ->color('danger')
+                        ->placeholder('Nenhum')
+                        ->columnSpanFull(),
+
+                    Infolists\Components\TextEntry::make('extraction_metadata.skipped_reasons')
+                        ->label('Obrigações Descartadas — Motivos')
+                        ->formatStateUsing(function ($state) {
+                            if (empty($state)) {
+                                return null;
+                            }
+                            $lines = [];
+                            foreach ((array) $state as $item) {
+                                $reason  = $item['reason'] ?? '?';
+                                $title   = $item['title'] ?? '—';
+                                $detail  = $item['detail'] ?? null;
+                                $preview = $item['source_excerpt_preview'] ?? null;
+                                $line    = "[{$reason}] {$title}";
+                                if ($detail) {
+                                    $line .= "\n  Detalhe: {$detail}";
+                                }
+                                if ($preview) {
+                                    $line .= "\n  Trecho: «{$preview}»";
+                                }
+                                $lines[] = $line;
+                            }
+                            return implode("\n\n", $lines);
+                        })
+                        ->placeholder('Nenhuma obrigação descartada')
+                        ->columnSpanFull(),
                 ]),
 
             Infolists\Components\Section::make('Texto Extraído')

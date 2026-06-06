@@ -98,8 +98,16 @@ Acesse: **http://localhost:8000/admin**
 
 ### 4. Gerar Obrigações Sugeridas
 - Após o processamento, clique em **"Gerar Obrigações Sugeridas"**
-- O sistema analisa o texto com palavras-chave e gera sugestões
+- O sistema enfileira a geração e retorna imediatamente para a tela
+- Execute um worker de filas em outro terminal para processar Gemini ou mock:
+
+```bash
+php artisan queue:work --timeout=600 --tries=1
+```
+
 - As sugestões ficam com status **"Sugerida"** e um badge aparece no menu
+
+> Para extração Gemini, use `QUEUE_CONNECTION=database` ou `QUEUE_CONNECTION=redis`. Se `QUEUE_CONNECTION=sync`, o `dispatch()` do Laravel executa o job dentro da requisição Livewire e a tela pode voltar a aguardar a API externa.
 
 ### 5. Revisar e Aprovar
 - Menu **Obrigações → Obrigações Sugeridas**
@@ -120,11 +128,11 @@ Acesse: **http://localhost:8000/admin**
 - Tenta detectar referências de cláusulas automaticamente
 - Salva o texto extraído e os chunks no banco de dados
 
-### Extração de obrigações (MockObligationExtractor)
-- Analisa o texto por palavras-chave relevantes (ex.: "covenant", "fundo de reserva", "relatório mensal")
-- Para cada padrão encontrado, gera uma sugestão de obrigação realista
-- Inclui pontuação de confiança estimada (0–1)
-- Para integrar IA real: trocar `MockObligationExtractor` por `AiObligationExtractor` em `AppServiceProvider`
+### Extração de obrigações (MockObligationExtractor / GeminiObligationExtractor)
+- A ação do Filament apenas limpa sugestões pendentes, marca a geração como `queued` e despacha `GenerateTermDocumentObligationsJob`
+- O job chama `ObligationExtractionService`, processa chunks e salva novas sugestões fora da requisição Livewire
+- `MockObligationExtractor` analisa o texto por palavras-chave em modo de demonstração
+- `GeminiObligationExtractor` chama a API Gemini quando `OBLIGATION_EXTRACTOR=gemini`
 
 ---
 
@@ -135,7 +143,8 @@ app/
 ├── Contracts/
 │   └── ObligationExtractorInterface.php   ← Interface para extratores
 ├── Jobs/
-│   └── ProcessTermDocumentJob.php         ← Job de processamento (sincronizado no MVP)
+│   ├── ProcessTermDocumentJob.php         ← Job de processamento de PDF
+│   └── GenerateTermDocumentObligationsJob.php ← Job assíncrono de geração de obrigações
 ├── Models/
 │   ├── Operation.php
 │   ├── TermDocument.php
@@ -176,7 +185,7 @@ prototype/                                 ← Protótipo React original (refer�
 - **Sem notificações** — não há alertas de vencimento por e-mail/SMS
 - **Sem upload de evidências** — apenas registro da evidência exigida
 - **Autenticação simplificada** — sem perfis de acesso ou permissões por papel
-- **Fila configurada** — mas processamento é sincronizado no MVP (não requer worker)
+- **Fila obrigatória para Gemini** — mantenha um worker ativo para que a geração de obrigações não rode dentro do Livewire
 
 ---
 
@@ -219,6 +228,16 @@ AZURE_STORAGE_ACCOUNT=...
 AZURE_STORAGE_KEY=...
 AZURE_STORAGE_CONTAINER=termo-docs
 QUEUE_CONNECTION=redis    # ou database
+```
+
+### Variáveis de ambiente para geração por Gemini
+
+```env
+QUEUE_CONNECTION=database
+OBLIGATION_EXTRACTOR=gemini
+GEMINI_API_TIMEOUT=30
+GEMINI_MAX_CHUNK_CHARS=8000
+GEMINI_MAX_CHUNKS_PER_DOCUMENT=3
 ```
 
 ---
