@@ -6,6 +6,7 @@ use App\Filament\Resources\ExtractedObligationResource;
 use App\Models\ExtractedObligation;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
+use App\Services\ObligationStatusService;
 use Filament\Actions;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
@@ -35,11 +36,14 @@ class ViewExtractedObligation extends ViewRecord
                 ->action(function () {
                     $record = $this->record;
 
+                    $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($record->due_date);
+
                     $obligation = Obligation::create([
                         'operation_id'            => $record->operation_id,
                         'extracted_obligation_id' => $record->id,
                         'title'                   => $record->title,
                         'obligation_type'         => $record->obligation_type,
+                        'obligation_category'     => $record->obligation_category,
                         'description'             => $record->description,
                         'responsible_party'       => $record->responsible_party,
                         'responsible_area'        => $record->responsible_area,
@@ -47,7 +51,7 @@ class ViewExtractedObligation extends ViewRecord
                         'due_rule'                => $record->due_rule,
                         'due_date'                => $record->due_date,
                         'priority'                => $record->priority,
-                        'status'                  => 'on_track',
+                        'status'                  => $initialStatus,
                         'required_evidence'       => $record->required_evidence,
                         'source_clause'           => $record->source_clause,
                         'source_page'             => $record->source_page,
@@ -57,7 +61,7 @@ class ViewExtractedObligation extends ViewRecord
                     ObligationHistory::create([
                         'obligation_id' => $obligation->id,
                         'action'        => 'Obrigação criada a partir de sugestão aprovada.',
-                        'new_value'     => 'on_track',
+                        'new_value'     => $initialStatus,
                     ]);
 
                     $record->update([

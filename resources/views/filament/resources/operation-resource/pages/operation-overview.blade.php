@@ -14,20 +14,26 @@ $priorityLabel = fn ($p) => match ($p) {
     default    => 'Baixa',
 };
 $obStatusColor = fn ($s) => match ($s) {
-    'overdue'      => 'danger',
-    'due_soon'     => 'warning',
-    'on_track'     => 'success',
-    'completed'    => 'gray',
-    'under_review' => 'info',
-    default        => 'gray',
+    'vencida'            => 'danger',
+    'a_vencer'           => 'warning',
+    'em_dia'             => 'success',
+    'concluida'          => 'info',
+    'em_analise'         => 'primary',
+    'waiver'             => 'warning',
+    'nao_aplicavel'      => 'gray',
+    'pendente_evidencia' => 'info',
+    default              => 'gray',
 };
 $obStatusLabel = fn ($s) => match ($s) {
-    'overdue'      => 'Vencida',
-    'due_soon'     => 'A vencer',
-    'on_track'     => 'Em dia',
-    'completed'    => 'Concluída',
-    'under_review' => 'Em análise',
-    default        => $s,
+    'vencida'            => 'Vencida',
+    'a_vencer'           => 'A vencer',
+    'em_dia'             => 'Em dia',
+    'concluida'          => 'Concluída',
+    'em_analise'         => 'Em análise',
+    'waiver'             => 'Waiver',
+    'nao_aplicavel'      => 'N/A',
+    'pendente_evidencia' => 'Pend. Evidência',
+    default              => $s,
 };
 $procStatusColor = fn ($s) => match ($s) {
     'processed'  => 'success',
@@ -289,6 +295,31 @@ $procStatusLabel = fn ($s) => match ($s) {
 
 </div>
 
+{{-- Secondary status counters: em_analise / waiver / pendente_evidencia --}}
+<div class="grid grid-cols-3 gap-3 mt-3">
+    <div class="rounded-lg bg-purple-50/40 dark:bg-purple-950/20 px-4 py-2.5 ring-1 ring-purple-100 dark:ring-purple-900/30 flex items-center justify-between">
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">Em Análise</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $stats['em_analise_count'] }}</p>
+        </div>
+        <x-filament::icon icon="heroicon-o-magnifying-glass" class="h-5 w-5 text-purple-400 dark:text-purple-500 shrink-0" />
+    </div>
+    <div class="rounded-lg bg-orange-50/40 dark:bg-orange-950/20 px-4 py-2.5 ring-1 ring-orange-100 dark:ring-orange-900/30 flex items-center justify-between">
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-0.5">Waiver / Dispensa</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $stats['waiver_count'] }}</p>
+        </div>
+        <x-filament::icon icon="heroicon-o-document-check" class="h-5 w-5 text-orange-400 dark:text-orange-500 shrink-0" />
+    </div>
+    <div class="rounded-lg bg-cyan-50/40 dark:bg-cyan-950/20 px-4 py-2.5 ring-1 ring-cyan-100 dark:ring-cyan-900/30 flex items-center justify-between">
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 mb-0.5">Pend. Evidência</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $stats['pendente_evidencia_count'] }}</p>
+        </div>
+        <x-filament::icon icon="heroicon-o-paper-clip" class="h-5 w-5 text-cyan-500 dark:text-cyan-500 shrink-0" />
+    </div>
+</div>
+
 <div id="obrigacoes" class="scroll-mt-8 mt-8"></div>
 
 {{-- ══════════════════════════════════════════════════════════════════════════ --}}
@@ -337,7 +368,7 @@ $procStatusLabel = fn ($s) => match ($s) {
                             <td class="px-3 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                                 {{ $ob['responsible_area'] ?: '—' }}
                             </td>
-                            <td class="px-3 py-3 font-medium whitespace-nowrap {{ $ob['status'] === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300' }}">
+                            <td class="px-3 py-3 font-medium whitespace-nowrap {{ $ob['status'] === 'vencida' ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300' }}">
                                 {{ $ob['due_date'] ? \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') : '—' }}
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap">
@@ -354,7 +385,7 @@ $procStatusLabel = fn ($s) => match ($s) {
                                 <div class="flex items-center justify-end gap-3">
                                     <a href="{{ $ob['url_view'] }}" class="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">Ver</a>
                                     <a href="{{ $ob['url_edit'] }}" class="font-medium text-gray-600 hover:text-gray-700 dark:text-gray-400">Editar</a>
-                                    @if($ob['status'] !== 'completed')
+                                    @if($ob['status'] !== 'concluida')
                                         <button wire:click="markObligationCompleted({{ $ob['id'] }})" wire:confirm="Marcar como concluída?" class="font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">Concluir</button>
                                     @endif
                                 </div>

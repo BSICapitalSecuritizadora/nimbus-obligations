@@ -7,6 +7,7 @@ use App\Models\ExtractedObligation;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
 use App\Services\ObligationCategoryClassifier;
+use App\Services\ObligationStatusService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -254,6 +255,8 @@ class ExtractedObligationResource extends Resource
                         // record to access source_excerpt, description, etc.
                         $full = $record->fresh();
 
+                        $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($full->due_date);
+
                         $obligation = Obligation::create([
                             'operation_id'            => $full->operation_id,
                             'extracted_obligation_id' => $full->id,
@@ -267,7 +270,7 @@ class ExtractedObligationResource extends Resource
                             'due_rule'                => $full->due_rule,
                             'due_date'                => $full->due_date,
                             'priority'                => $full->priority,
-                            'status'                  => 'on_track',
+                            'status'                  => $initialStatus,
                             'required_evidence'       => $full->required_evidence,
                             'source_clause'           => $full->source_clause,
                             'source_page'             => $full->source_page,
@@ -277,7 +280,7 @@ class ExtractedObligationResource extends Resource
                         ObligationHistory::create([
                             'obligation_id' => $obligation->id,
                             'action'        => 'Obrigação criada a partir de sugestão aprovada.',
-                            'new_value'     => 'on_track',
+                            'new_value'     => $initialStatus,
                         ]);
 
                         $record->update([

@@ -13,6 +13,8 @@ return [
     */
     'extractor' => env('OBLIGATION_EXTRACTOR', 'mock'),
 
+    'due_soon_days' => (int) env('OBLIGATION_DUE_SOON_DAYS', 30),
+
     /*
     |--------------------------------------------------------------------------
     | Google Gemini Configuration

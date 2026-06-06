@@ -758,13 +758,13 @@ class ObligationExtractionTest extends TestCase
             'obligation_type'         => $extracted->obligation_type,
             'description'             => $extracted->description,
             'priority'                => $extracted->priority,
-            'status'                  => 'on_track',
+            'status'                  => 'em_dia',
         ]);
 
         $extracted->update(['status' => 'approved']);
 
         $this->assertSame('approved', $extracted->fresh()->status);
-        $this->assertSame('on_track', $obligation->status);
+        $this->assertSame('em_dia', $obligation->status);
         $this->assertDatabaseHas('obligations', ['extracted_obligation_id' => $extracted->id]);
     }
 }

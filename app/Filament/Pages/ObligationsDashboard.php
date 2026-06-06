@@ -38,12 +38,16 @@ class ObligationsDashboard extends Page implements HasTable
         $q = Obligation::query();
 
         return [
-            'total'        => (clone $q)->count(),
-            'on_track'     => (clone $q)->where('status', 'on_track')->count(),
-            'due_soon'     => (clone $q)->where('status', 'due_soon')->count(),
-            'overdue'      => (clone $q)->where('status', 'overdue')->count(),
-            'completed'    => (clone $q)->where('status', 'completed')->count(),
-            'critical'     => (clone $q)->where('priority', 'critical')->count(),
+            'total'              => (clone $q)->count(),
+            'em_dia'             => (clone $q)->where('status', 'em_dia')->count(),
+            'a_vencer'           => (clone $q)->where('status', 'a_vencer')->count(),
+            'vencida'            => (clone $q)->where('status', 'vencida')->count(),
+            'concluida'          => (clone $q)->where('status', 'concluida')->count(),
+            'em_analise'         => (clone $q)->where('status', 'em_analise')->count(),
+            'waiver'             => (clone $q)->where('status', 'waiver')->count(),
+            'nao_aplicavel'      => (clone $q)->where('status', 'nao_aplicavel')->count(),
+            'pendente_evidencia' => (clone $q)->where('status', 'pendente_evidencia')->count(),
+            'critical'           => (clone $q)->where('priority', 'critical')->count(),
         ];
     }
 
@@ -82,16 +86,21 @@ class ObligationsDashboard extends Page implements HasTable
                     ->placeholder('—')
                     ->sortable(),
 
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Status')
+                    ->badge()
                     ->formatStateUsing(fn ($state) => Obligation::statusOptions()[$state] ?? $state)
-                    ->colors([
-                        'success' => 'on_track',
-                        'warning' => 'due_soon',
-                        'danger'  => 'overdue',
-                        'gray'    => 'completed',
-                        'info'    => 'under_review',
-                    ]),
+                    ->color(fn ($state) => match ($state) {
+                        'em_dia'             => 'success',
+                        'a_vencer'           => 'warning',
+                        'vencida'            => 'danger',
+                        'concluida'          => 'info',
+                        'em_analise'         => 'primary',
+                        'waiver'             => 'warning',
+                        'nao_aplicavel'      => 'gray',
+                        'pendente_evidencia' => 'info',
+                        default              => 'gray',
+                    }),
 
                 Tables\Columns\BadgeColumn::make('priority')
                     ->label('Prioridade')

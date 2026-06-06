@@ -15,6 +15,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use App\Services\ObligationStatusService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -54,10 +55,13 @@ class OperationOverview extends Page
                               ->whereIn('status', ['suggested', 'needs_review'])->count();
         $criticalCount  = Obligation::where('operation_id', $id)
                               ->where('priority', 'critical')
-                              ->where('status', '!=', 'completed')->count();
-        $overdueCount   = Obligation::where('operation_id', $id)->where('status', 'overdue')->count();
-        $dueSoonCount   = Obligation::where('operation_id', $id)->where('status', 'due_soon')->count();
-        $completedCount = Obligation::where('operation_id', $id)->where('status', 'completed')->count();
+                              ->whereNotIn('status', ['concluida', 'waiver', 'nao_aplicavel'])->count();
+        $overdueCount   = Obligation::where('operation_id', $id)->where('status', 'vencida')->count();
+        $dueSoonCount   = Obligation::where('operation_id', $id)->where('status', 'a_vencer')->count();
+        $completedCount = Obligation::where('operation_id', $id)->where('status', 'concluida')->count();
+        $emAnaliseCount = Obligation::where('operation_id', $id)->where('status', 'em_analise')->count();
+        $waiverCount    = Obligation::where('operation_id', $id)->where('status', 'waiver')->count();
+        $pendingEvidCount = Obligation::where('operation_id', $id)->where('status', 'pendente_evidencia')->count();
         $docsCount      = TermDocument::where('operation_id', $id)->count();
         $lastAi         = TermDocument::where('operation_id', $id)
                               ->whereNotNull('processed_at')
@@ -65,14 +69,17 @@ class OperationOverview extends Page
                               ->value('processed_at');
 
         $this->stats = [
-            'approved_count'       => $approvedCount,
-            'suggested_count'      => $suggestedCount,
-            'critical_count'       => $criticalCount,
-            'overdue_count'        => $overdueCount,
-            'due_soon_count'       => $dueSoonCount,
-            'completed_count'      => $completedCount,
-            'term_documents_count' => $docsCount,
-            'last_ai_processing'   => $lastAi ? Carbon::parse($lastAi)->format('d/m/Y H:i') : '—',
+            'approved_count'           => $approvedCount,
+            'suggested_count'          => $suggestedCount,
+            'critical_count'           => $criticalCount,
+            'overdue_count'            => $overdueCount,
+            'due_soon_count'           => $dueSoonCount,
+            'completed_count'          => $completedCount,
+            'em_analise_count'         => $emAnaliseCount,
+            'waiver_count'             => $waiverCount,
+            'pendente_evidencia_count' => $pendingEvidCount,
+            'term_documents_count'     => $docsCount,
+            'last_ai_processing'       => $lastAi ? Carbon::parse($lastAi)->format('d/m/Y H:i') : '—',
         ];
 
         // ── Health snapshot ────────────────────────────────────────────────────
@@ -85,7 +92,7 @@ class OperationOverview extends Page
             } else {
                 $mainPoint = "{$criticalCount} obrigação(ões) crítica(s) pendente(s) de resolução.";
             }
-        } elseif ($dueSoonCount > 0 || $suggestedCount > 0) {
+        } elseif ($dueSoonCount > 0 || $suggestedCount > 0 || $pendingEvidCount > 0) {
             $healthStatus = 'attention';
             if ($dueSoonCount > 0 && $suggestedCount > 0) {
                 $mainPoint = "{$dueSoonCount} obrigação(ões) a vencer em breve e {$suggestedCount} sugestão(ões) aguardando revisão.";
@@ -146,7 +153,7 @@ class OperationOverview extends Page
         // ── Approved obligations — most urgent first (Limit 5) ────────────────
         $this->approvedObs = Obligation::where('operation_id', $id)
             ->select(['id', 'title', 'obligation_type', 'obligation_category', 'responsible_area', 'due_date', 'status', 'priority'])
-            ->orderByRaw("CASE WHEN status = 'overdue' THEN 0 WHEN status = 'due_soon' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN status = 'vencida' THEN 0 WHEN status = 'a_vencer' THEN 1 ELSE 2 END")
             ->orderBy('due_date')
             ->limit(5)
             ->get()
@@ -159,7 +166,7 @@ class OperationOverview extends Page
         // ── Due soon breakdown ────────────────────────────────────────────────
         $this->dueSoon = [
             'overdue'   => Obligation::where('operation_id', $id)
-                              ->where('status', 'overdue')
+                              ->where('status', 'vencida')
                               ->whereNotNull('due_date')
                               ->orderBy('due_date')
                               ->select(['id', 'title', 'due_date', 'priority', 'obligation_type'])
@@ -220,6 +227,8 @@ class OperationOverview extends Page
 
         $full = $extracted->fresh();
 
+        $initialStatus = app(ObligationStatusService::class)->calculateFromDueDate($full->due_date);
+
         $obligation = Obligation::create([
             'operation_id'            => $full->operation_id,
             'extracted_obligation_id' => $full->id,
@@ -233,7 +242,7 @@ class OperationOverview extends Page
             'due_rule'                => $full->due_rule,
             'due_date'                => $full->due_date,
             'priority'                => $full->priority,
-            'status'                  => 'on_track',
+            'status'                  => $initialStatus,
             'required_evidence'       => $full->required_evidence,
             'source_clause'           => $full->source_clause,
             'source_page'             => $full->source_page,
@@ -243,7 +252,7 @@ class OperationOverview extends Page
         ObligationHistory::create([
             'obligation_id' => $obligation->id,
             'action'        => 'Obrigação criada a partir de sugestão aprovada (Visão da Operação).',
-            'new_value'     => 'on_track',
+            'new_value'     => $initialStatus,
         ]);
 
         $extracted->update([
@@ -282,12 +291,12 @@ class OperationOverview extends Page
             return;
         }
 
-        $obligation->update(['status' => 'completed']);
+        $obligation->update(['status' => 'concluida']);
 
         ObligationHistory::create([
             'obligation_id' => $obligation->id,
             'action'        => 'Obrigação marcada como concluída (Visão da Operação).',
-            'new_value'     => 'completed',
+            'new_value'     => 'concluida',
         ]);
 
         Notification::make()->title('Obrigação marcada como concluída.')->success()->send();

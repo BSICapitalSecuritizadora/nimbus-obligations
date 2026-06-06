@@ -58,10 +58,10 @@ class ObligationResource extends Resource
                     ->default('medium'),
 
                 Forms\Components\Select::make('status')
-                    ->label('Status')
+                    ->label('Status Operacional')
                     ->options(Obligation::statusOptions())
                     ->required()
-                    ->default('on_track'),
+                    ->default('em_dia'),
             ]),
 
             Forms\Components\Section::make('Detalhes')->columns(2)->schema([
@@ -134,16 +134,21 @@ class ObligationResource extends Resource
                     ->placeholder('—')
                     ->sortable(),
 
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Status')
+                    ->badge()
                     ->formatStateUsing(fn ($state) => Obligation::statusOptions()[$state] ?? $state)
-                    ->colors([
-                        'success' => 'on_track',
-                        'warning' => 'due_soon',
-                        'danger'  => 'overdue',
-                        'gray'    => 'completed',
-                        'info'    => 'under_review',
-                    ]),
+                    ->color(fn ($state) => match ($state) {
+                        'em_dia'             => 'success',
+                        'a_vencer'           => 'warning',
+                        'vencida'            => 'danger',
+                        'concluida'          => 'info',
+                        'em_analise'         => 'primary',
+                        'waiver'             => 'warning',
+                        'nao_aplicavel'      => 'gray',
+                        'pendente_evidencia' => 'info',
+                        default              => 'gray',
+                    }),
 
                 Tables\Columns\BadgeColumn::make('priority')
                     ->label('Prioridade')
@@ -186,23 +191,97 @@ class ObligationResource extends Resource
                     ->options(array_combine(Obligation::obligationTypes(), Obligation::obligationTypes())),
             ])
             ->actions([
-                Tables\Actions\Action::make('mark_completed')
-                    ->label('Concluir')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->action(function (Obligation $record) {
-                        $old = $record->status;
-                        $record->update(['status' => 'completed']);
-                        ObligationHistory::create([
-                            'obligation_id' => $record->id,
-                            'action'        => 'Status alterado para Concluída.',
-                            'old_value'     => $old,
-                            'new_value'     => 'completed',
-                        ]);
-                        Notification::make()->title('Obrigação marcada como concluída.')->success()->send();
-                    })
-                    ->visible(fn (Obligation $r) => $r->status !== 'completed'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('mark_concluida')
+                        ->label('Marcar como Concluída')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function (Obligation $record) {
+                            $old = $record->status;
+                            $record->update(['status' => 'concluida']);
+                            ObligationHistory::create([
+                                'obligation_id' => $record->id,
+                                'action'        => 'Status alterado para Concluída.',
+                                'old_value'     => $old,
+                                'new_value'     => 'concluida',
+                            ]);
+                            Notification::make()->title('Obrigação marcada como concluída.')->success()->send();
+                        })
+                        ->visible(fn (Obligation $r) => $r->status !== 'concluida'),
+
+                    Tables\Actions\Action::make('mark_em_analise')
+                        ->label('Colocar em Análise')
+                        ->icon('heroicon-o-magnifying-glass')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->action(function (Obligation $record) {
+                            $old = $record->status;
+                            $record->update(['status' => 'em_analise']);
+                            ObligationHistory::create([
+                                'obligation_id' => $record->id,
+                                'action'        => 'Status alterado para Em análise.',
+                                'old_value'     => $old,
+                                'new_value'     => 'em_analise',
+                            ]);
+                            Notification::make()->title('Obrigação em análise.')->warning()->send();
+                        })
+                        ->visible(fn (Obligation $r) => $r->status !== 'em_analise'),
+
+                    Tables\Actions\Action::make('mark_waiver')
+                        ->label('Waiver / Dispensa')
+                        ->icon('heroicon-o-document-check')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->action(function (Obligation $record) {
+                            $old = $record->status;
+                            $record->update(['status' => 'waiver']);
+                            ObligationHistory::create([
+                                'obligation_id' => $record->id,
+                                'action'        => 'Status alterado para Waiver / Dispensa.',
+                                'old_value'     => $old,
+                                'new_value'     => 'waiver',
+                            ]);
+                            Notification::make()->title('Obrigação dispensada (waiver).')->success()->send();
+                        })
+                        ->visible(fn (Obligation $r) => $r->status !== 'waiver'),
+
+                    Tables\Actions\Action::make('mark_nao_aplicavel')
+                        ->label('Não Aplicável')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('gray')
+                        ->requiresConfirmation()
+                        ->action(function (Obligation $record) {
+                            $old = $record->status;
+                            $record->update(['status' => 'nao_aplicavel']);
+                            ObligationHistory::create([
+                                'obligation_id' => $record->id,
+                                'action'        => 'Status alterado para Não aplicável.',
+                                'old_value'     => $old,
+                                'new_value'     => 'nao_aplicavel',
+                            ]);
+                            Notification::make()->title('Obrigação marcada como não aplicável.')->send();
+                        })
+                        ->visible(fn (Obligation $r) => $r->status !== 'nao_aplicavel'),
+
+                    Tables\Actions\Action::make('mark_pendente_evidencia')
+                        ->label('Pendente de Evidência')
+                        ->icon('heroicon-o-paper-clip')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->action(function (Obligation $record) {
+                            $old = $record->status;
+                            $record->update(['status' => 'pendente_evidencia']);
+                            ObligationHistory::create([
+                                'obligation_id' => $record->id,
+                                'action'        => 'Status alterado para Pendente de evidência.',
+                                'old_value'     => $old,
+                                'new_value'     => 'pendente_evidencia',
+                            ]);
+                            Notification::make()->title('Obrigação pendente de evidência.')->info()->send();
+                        })
+                        ->visible(fn (Obligation $r) => $r->status !== 'pendente_evidencia'),
+                ])->label('Status'),
 
                 Tables\Actions\ViewAction::make()->label('Ver'),
                 Tables\Actions\EditAction::make()->label('Editar'),

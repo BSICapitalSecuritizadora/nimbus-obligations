@@ -26,11 +26,14 @@ class Obligation extends Model
     public static function statusOptions(): array
     {
         return [
-            'on_track'     => 'Em dia',
-            'due_soon'     => 'A vencer',
-            'overdue'      => 'Vencida',
-            'completed'    => 'Concluída',
-            'under_review' => 'Em análise',
+            'em_dia'             => 'Em dia',
+            'a_vencer'           => 'A vencer',
+            'vencida'            => 'Vencida',
+            'concluida'          => 'Concluída',
+            'em_analise'         => 'Em análise',
+            'waiver'             => 'Waiver / Dispensa',
+            'nao_aplicavel'      => 'Não aplicável',
+            'pendente_evidencia' => 'Pendente de evidência',
         ];
     }
 
