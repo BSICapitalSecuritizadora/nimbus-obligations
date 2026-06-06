@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ObligationResource\Pages;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
+use App\Services\ObligationCategoryClassifier;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -44,6 +45,11 @@ class ObligationResource extends Resource
                     ->options(array_combine(Obligation::obligationTypes(), Obligation::obligationTypes()))
                     ->searchable()
                     ->required(),
+
+                Forms\Components\Select::make('obligation_category')
+                    ->label('Categoria')
+                    ->options(ObligationCategoryClassifier::categoryOptions())
+                    ->searchable(),
 
                 Forms\Components\Select::make('priority')
                     ->label('Prioridade')
@@ -106,10 +112,17 @@ class ObligationResource extends Resource
                     ->searchable()
                     ->wrap(),
 
+                Tables\Columns\TextColumn::make('obligation_category')
+                    ->label('Categoria')
+                    ->badge()
+                    ->color(fn ($state) => $state ? ObligationCategoryClassifier::categoryColor($state) : 'gray')
+                    ->placeholder('—'),
+
                 Tables\Columns\TextColumn::make('obligation_type')
                     ->label('Tipo')
                     ->badge()
-                    ->color('gray'),
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('responsible_area')
                     ->label('Área')
@@ -163,6 +176,10 @@ class ObligationResource extends Resource
                 Tables\Filters\SelectFilter::make('priority')
                     ->label('Prioridade')
                     ->options(Obligation::priorityOptions()),
+
+                Tables\Filters\SelectFilter::make('obligation_category')
+                    ->label('Categoria')
+                    ->options(ObligationCategoryClassifier::categoryOptions()),
 
                 Tables\Filters\SelectFilter::make('obligation_type')
                     ->label('Tipo')

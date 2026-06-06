@@ -134,7 +134,7 @@ class OperationOverview extends Page
         // ── Suggested obligations (Limit 5) ───────────────────────────────────
         $this->suggestedObs = ExtractedObligation::where('operation_id', $id)
             ->whereIn('status', ['suggested', 'needs_review'])
-            ->select(['id', 'title', 'obligation_type', 'priority', 'confidence_score', 'source_clause', 'status'])
+            ->select(['id', 'title', 'obligation_type', 'obligation_category', 'priority', 'confidence_score', 'source_clause', 'status'])
             ->latest()
             ->limit(5)
             ->get()
@@ -145,7 +145,7 @@ class OperationOverview extends Page
 
         // ── Approved obligations — most urgent first (Limit 5) ────────────────
         $this->approvedObs = Obligation::where('operation_id', $id)
-            ->select(['id', 'title', 'obligation_type', 'responsible_area', 'due_date', 'status', 'priority'])
+            ->select(['id', 'title', 'obligation_type', 'obligation_category', 'responsible_area', 'due_date', 'status', 'priority'])
             ->orderByRaw("CASE WHEN status = 'overdue' THEN 0 WHEN status = 'due_soon' THEN 1 ELSE 2 END")
             ->orderBy('due_date')
             ->limit(5)
@@ -184,16 +184,16 @@ class OperationOverview extends Page
                               ->limit(5)->get()->toArray(),
         ];
 
-        // ── Category breakdown ────────────────────────────────────────────────
+        // ── Category breakdown (by obligation_category) ───────────────────────
         $rawCategories = Obligation::where('operation_id', $id)
-            ->select('obligation_type', DB::raw('count(*) as total'))
-            ->groupBy('obligation_type')
+            ->select('obligation_category', DB::raw('count(*) as total'))
+            ->groupBy('obligation_category')
             ->orderBy('total', 'desc')
             ->get();
 
         $topCategories = $rawCategories->take(8)->map(fn ($row) => [
-            'type' => $row->obligation_type ?: 'Não classificado',
-            'count' => (int) $row->total
+            'type'  => $row->obligation_category ?: 'Outro',
+            'count' => (int) $row->total,
         ])->toArray();
 
         $othersCount = $rawCategories->skip(8)->sum('total');
@@ -225,6 +225,7 @@ class OperationOverview extends Page
             'extracted_obligation_id' => $full->id,
             'title'                   => $full->title,
             'obligation_type'         => $full->obligation_type,
+            'obligation_category'     => $full->obligation_category,
             'description'             => $full->description,
             'responsible_party'       => $full->responsible_party,
             'responsible_area'        => $full->responsible_area,

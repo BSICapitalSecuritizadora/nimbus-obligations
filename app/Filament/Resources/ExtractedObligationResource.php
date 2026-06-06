@@ -6,6 +6,7 @@ use App\Filament\Resources\ExtractedObligationResource\Pages;
 use App\Models\ExtractedObligation;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
+use App\Services\ObligationCategoryClassifier;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -60,6 +61,11 @@ class ExtractedObligationResource extends Resource
                     ))
                     ->searchable()
                     ->required(),
+
+                Forms\Components\Select::make('obligation_category')
+                    ->label('Categoria')
+                    ->options(ObligationCategoryClassifier::categoryOptions())
+                    ->searchable(),
 
                 Forms\Components\Select::make('priority')
                     ->label('Prioridade')
@@ -120,7 +126,7 @@ class ExtractedObligationResource extends Resource
             // views and inside action closures via $record->fresh().
             ->modifyQueryUsing(fn (Builder $query) => $query->select([
                 'id', 'operation_id', 'term_document_id',
-                'title', 'obligation_type', 'status', 'priority',
+                'title', 'obligation_type', 'obligation_category', 'status', 'priority',
                 'responsible_area', 'recurrence',
                 'confidence_score', 'source_clause',
                 'ai_provider', 'ai_model',
@@ -139,10 +145,17 @@ class ExtractedObligationResource extends Resource
                     ->limit(60)
                     ->tooltip(fn ($record) => $record->title),
 
+                Tables\Columns\TextColumn::make('obligation_category')
+                    ->label('Categoria')
+                    ->badge()
+                    ->color(fn ($state) => $state ? ObligationCategoryClassifier::categoryColor($state) : 'gray')
+                    ->placeholder('—'),
+
                 Tables\Columns\TextColumn::make('obligation_type')
                     ->label('Tipo')
                     ->badge()
-                    ->color('gray'),
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('responsible_area')
                     ->label('Área')
@@ -216,6 +229,10 @@ class ExtractedObligationResource extends Resource
                     ->label('Operação')
                     ->relationship('operation', 'name'),
 
+                Tables\Filters\SelectFilter::make('obligation_category')
+                    ->label('Categoria')
+                    ->options(ObligationCategoryClassifier::categoryOptions()),
+
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Status')
                     ->options(ExtractedObligation::statusOptions()),
@@ -242,6 +259,7 @@ class ExtractedObligationResource extends Resource
                             'extracted_obligation_id' => $full->id,
                             'title'                   => $full->title,
                             'obligation_type'         => $full->obligation_type,
+                            'obligation_category'     => $full->obligation_category,
                             'description'             => $full->description,
                             'responsible_party'       => $full->responsible_party,
                             'responsible_area'        => $full->responsible_area,

@@ -12,7 +12,7 @@ class Obligation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'operation_id', 'extracted_obligation_id', 'title', 'obligation_type',
+        'operation_id', 'extracted_obligation_id', 'title', 'obligation_type', 'obligation_category',
         'description', 'responsible_party', 'responsible_area', 'recurrence',
         'due_rule', 'due_date', 'priority', 'status', 'required_evidence',
         'source_clause', 'source_page', 'source_excerpt', 'notes',

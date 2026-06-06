@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Obligation;
 use App\Models\Operation;
+use App\Services\ObligationCategoryClassifier;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
@@ -122,6 +123,10 @@ class ObligationsDashboard extends Page implements HasTable
                 Tables\Filters\SelectFilter::make('responsible_area')
                     ->label('Área Responsável')
                     ->options(fn () => Obligation::distinct()->pluck('responsible_area', 'responsible_area')->filter()->toArray()),
+
+                Tables\Filters\SelectFilter::make('obligation_category')
+                    ->label('Categoria')
+                    ->options(ObligationCategoryClassifier::categoryOptions()),
 
                 Tables\Filters\SelectFilter::make('obligation_type')
                     ->label('Tipo')

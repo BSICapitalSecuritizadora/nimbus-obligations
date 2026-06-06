@@ -306,45 +306,51 @@ $procStatusLabel = fn ($s) => match ($s) {
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 max-w-xs">Aguardando revisão de sugestões ou criação manual de obrigações.</p>
         </div>
     @else
-        <div class="overflow-x-auto -mx-6 px-6">
-            <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-800">
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-sm divide-y divide-gray-200 dark:divide-gray-800">
                 <thead>
                     <tr>
-                        <th class="py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Título</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Tipo</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Área</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Vencimento</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Status</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Prioridade</th>
-                        <th class="py-3 text-right font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Ações</th>
+                        <th class="py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] w-1/3">Título</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Categoria</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Área</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Vencimento</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Status</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Prioridade</th>
+                        <th class="py-3 text-right font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Ações</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800/50">
                     @foreach($approvedObs as $ob)
                         <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/25 transition-colors">
-                            <td class="py-3 font-medium text-gray-900 dark:text-white max-w-[200px]">
-                                <span class="line-clamp-1" title="{{ $ob['title'] }}">{{ $ob['title'] }}</span>
+                            <td class="py-3 font-medium text-gray-900 dark:text-white max-w-0 w-1/3">
+                                <span class="truncate block" title="{{ $ob['title'] }}">{{ $ob['title'] }}</span>
                             </td>
-                            <td class="px-3 py-3 text-gray-600 dark:text-gray-400 max-w-[120px]">
-                                <span class="line-clamp-1" title="{{ $ob['obligation_type'] }}">{{ $ob['obligation_type'] ?: '—' }}</span>
+                            <td class="px-3 py-3 whitespace-nowrap">
+                                @if($ob['obligation_category'])
+                                    <x-filament::badge :color="\App\Services\ObligationCategoryClassifier::categoryColor($ob['obligation_category'])">
+                                        {{ $ob['obligation_category'] }}
+                                    </x-filament::badge>
+                                @else
+                                    <span class="text-gray-400 text-xs">—</span>
+                                @endif
                             </td>
-                            <td class="px-3 py-3 text-gray-600 dark:text-gray-400">
+                            <td class="px-3 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                                 {{ $ob['responsible_area'] ?: '—' }}
                             </td>
-                            <td class="px-3 py-3 font-medium {{ $ob['status'] === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300' }}">
+                            <td class="px-3 py-3 font-medium whitespace-nowrap {{ $ob['status'] === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300' }}">
                                 {{ $ob['due_date'] ? \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') : '—' }}
                             </td>
-                            <td class="px-3 py-3">
+                            <td class="px-3 py-3 whitespace-nowrap">
                                 <x-filament::badge :color="$obStatusColor($ob['status'])">
                                     {{ $obStatusLabel($ob['status']) }}
                                 </x-filament::badge>
                             </td>
-                            <td class="px-3 py-3">
+                            <td class="px-3 py-3 whitespace-nowrap">
                                 <x-filament::badge :color="$priorityColor($ob['priority'])">
                                     {{ $priorityLabel($ob['priority']) }}
                                 </x-filament::badge>
                             </td>
-                            <td class="py-3 text-right">
+                            <td class="py-3 text-right whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-3">
                                     <a href="{{ $ob['url_view'] }}" class="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">Ver</a>
                                     <a href="{{ $ob['url_edit'] }}" class="font-medium text-gray-600 hover:text-gray-700 dark:text-gray-400">Editar</a>
@@ -390,7 +396,7 @@ $procStatusLabel = fn ($s) => match ($s) {
                 <thead>
                     <tr>
                         <th class="py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] w-1/3">Título</th>
-                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px]">Tipo</th>
+                        <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Categoria</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Prioridade</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap">Confiança</th>
                         <th class="px-3 py-3 text-left font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-[11px] w-1/4">Cláusula Origem</th>
@@ -412,8 +418,14 @@ $procStatusLabel = fn ($s) => match ($s) {
                             <td class="py-3 font-medium text-gray-900 dark:text-white max-w-0 w-1/3">
                                 <p class="truncate" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
                             </td>
-                            <td class="px-3 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                <p class="truncate max-w-[140px]" title="{{ $ob['obligation_type'] }}">{{ $ob['obligation_type'] ?: '—' }}</p>
+                            <td class="px-3 py-3 whitespace-nowrap">
+                                @if(!empty($ob['obligation_category']))
+                                    <x-filament::badge :color="\App\Services\ObligationCategoryClassifier::categoryColor($ob['obligation_category'])">
+                                        {{ $ob['obligation_category'] }}
+                                    </x-filament::badge>
+                                @else
+                                    <span class="text-gray-400 text-xs">—</span>
+                                @endif
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap">
                                 <x-filament::badge :color="$priorityColor($ob['priority'])">
@@ -550,13 +562,13 @@ $procStatusLabel = fn ($s) => match ($s) {
         {{-- ══════════════════════════════════════════════════════════════════════════ --}}
         {{-- CATEGORY BREAKDOWN                                                        --}}
         {{-- ══════════════════════════════════════════════════════════════════════════ --}}
-        <x-filament::section heading="Distribuição por Tipo">
+        <x-filament::section heading="Distribuição por Categoria">
             @if(count($categoryBreakdown) === 0)
                 <div class="py-12 flex flex-col items-center justify-center text-center">
                     <div class="rounded-full bg-gray-50 p-4 dark:bg-gray-800/50 mb-3">
                         <x-filament::icon icon="heroicon-o-chart-bar" class="h-6 w-6 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Nenhuma obrigação aprovada classificada por tipo.</h3>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Nenhuma obrigação aprovada classificada por categoria.</h3>
                 </div>
             @else
                 @php 
@@ -578,7 +590,7 @@ $procStatusLabel = fn ($s) => match ($s) {
                 <div class="mb-5 pb-5 border-b border-gray-100 dark:border-gray-800">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            <span class="font-bold text-gray-900 dark:text-white">{{ $totalObs }}</span> obrigações classificadas em <span class="font-bold text-gray-900 dark:text-white">{{ $numTypes }}</span> tipos
+                            <span class="font-bold text-gray-900 dark:text-white">{{ $totalObs }}</span> obrigações classificadas em <span class="font-bold text-gray-900 dark:text-white">{{ $numTypes }}</span> categorias
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full bg-primary-500"></span>

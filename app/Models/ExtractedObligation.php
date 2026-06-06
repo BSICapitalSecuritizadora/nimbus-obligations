@@ -13,7 +13,7 @@ class ExtractedObligation extends Model
 
     protected $fillable = [
         'operation_id', 'term_document_id', 'term_document_chunk_id',
-        'title', 'obligation_type', 'description', 'responsible_party',
+        'title', 'obligation_type', 'obligation_category', 'description', 'responsible_party',
         'responsible_area', 'recurrence', 'due_rule', 'due_date', 'priority',
         'status', 'required_evidence', 'source_clause', 'source_page',
         'source_excerpt', 'confidence_score', 'review_notes',

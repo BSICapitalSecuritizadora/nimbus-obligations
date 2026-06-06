@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\ObligationExtractorInterface;
 use App\Models\TermDocument;
+use App\Services\ObligationCategoryClassifier;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -502,7 +503,8 @@ CAMPOS E REGRAS DE PREENCHIMENTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 - title: Título conciso em português imperativo (ex.: "Enviar relatório mensal ao Agente Fiduciário").
-- obligation_type: Categoria da obrigação (ex.: "Relatório Periódico", "Comunicação", "Covenant").
+- obligation_type: Tipo específico da obrigação (ex.: "Relatório Periódico", "Comunicação", "Covenant Financeiro").
+- obligation_category: Macro-categoria. Escolha EXATAMENTE uma de: "Informacional", "Covenants", "Fundos", "Garantias", "Recebíveis / Lastro", "Obras", "Condições Precedentes", "Assembleia / Waiver", "Vencimento Antecipado", "Patrimônio Separado", "Regulatória", "Financeira / Pagamento", "Outro".
 - description: Descrição completa baseada exclusivamente no texto-fonte.
 - responsible_party: Parte responsável EXPLÍCITA no texto (ex.: "Emissora", "Agente Fiduciário"). null se não explícito.
 - responsible_area: Uma de: Jurídico, Gestão, Emissões, Financeiro, Escrituração, Compliance, Risco, Engenharia, Outro.
@@ -526,6 +528,7 @@ SCHEMA JSON OBRIGATÓRIO — RETORNE SOMENTE JSON
     {
       "title": "string",
       "obligation_type": "string",
+      "obligation_category": "Informacional|Covenants|Fundos|Garantias|Recebíveis / Lastro|Obras|Condições Precedentes|Assembleia / Waiver|Vencimento Antecipado|Patrimônio Separado|Regulatória|Financeira / Pagamento|Outro",
       "description": "string",
       "responsible_party": "string|null",
       "responsible_area": "string",
@@ -623,6 +626,18 @@ PROMPT;
                 $area = 'Outro';
             }
 
+            // ── Normalise obligation_category — validate against allowed list, fall back to classifier ──
+            $rawCategory = isset($item['obligation_category']) ? trim($item['obligation_category']) : null;
+            if (! ObligationCategoryClassifier::isValid($rawCategory)) {
+                $rawCategory = ObligationCategoryClassifier::classifyFromTypeAndText(
+                    $item['obligation_type'] ?? null,
+                    $title,
+                    $item['description'] ?? null,
+                    $sourceExcerpt,
+                );
+            }
+            $category = $rawCategory;
+
             // ── Normalise confidence_score ─────────────────────────────────────
             $score = is_numeric($item['confidence_score'] ?? null)
                 ? max(0.0, min(1.0, (float) $item['confidence_score']))
@@ -690,9 +705,10 @@ PROMPT;
                 : null;
 
             $valid[] = [
-                'title'             => substr(trim($item['title']), 0, 255),
-                'obligation_type'   => substr(trim($item['obligation_type']), 0, 255),
-                'description'       => trim($item['description']),
+                'title'               => substr(trim($item['title']), 0, 255),
+                'obligation_type'     => substr(trim($item['obligation_type']), 0, 255),
+                'obligation_category' => $category,
+                'description'         => trim($item['description']),
                 'responsible_party' => isset($item['responsible_party']) ? substr(trim($item['responsible_party']), 0, 255) : null,
                 'responsible_area'  => $area,
                 'recurrence'        => $recurrence,
