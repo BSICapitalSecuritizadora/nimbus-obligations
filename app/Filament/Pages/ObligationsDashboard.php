@@ -2,10 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\ObligationResource;
 use App\Models\Obligation;
 use App\Models\Operation;
 use App\Services\NonComplianceRiskService;
 use App\Services\ObligationCategoryClassifier;
+use App\Services\UpcomingObligationsService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
@@ -55,6 +57,30 @@ class ObligationsDashboard extends Page implements HasTable
     public function getOperationOptions(): array
     {
         return Operation::pluck('name', 'id')->toArray();
+    }
+
+    public function getUpcomingData(): array
+    {
+        $svc = app(UpcomingObligationsService::class);
+
+        $toArr = fn ($col) => $col->map(fn ($ob) => [
+            'id'                  => $ob->id,
+            'title'               => $ob->title,
+            'operation_name'      => $ob->operation?->name ?? '—',
+            'obligation_category' => $ob->obligation_category,
+            'due_date'            => $ob->due_date?->toDateString(),
+            'status'              => $ob->status,
+            'priority'            => $ob->priority,
+            'non_compliance_risk' => $ob->non_compliance_risk,
+            'url_view'            => ObligationResource::getUrl('view', ['record' => $ob->id]),
+        ])->all();
+
+        return [
+            'summary' => $svc->getUpcomingSummary(),
+            'overdue' => $toArr($svc->getOverdue(null, 5)),
+            'due_7'   => $toArr($svc->getDueIn7Days(null, 5)),
+            'due_30'  => $toArr($svc->getDueIn30Days(null, 5)),
+        ];
     }
 
     public function table(Table $table): Table

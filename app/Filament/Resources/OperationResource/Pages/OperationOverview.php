@@ -17,6 +17,7 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use App\Services\NonComplianceRiskService;
 use App\Services\ObligationStatusService;
+use App\Services\UpcomingObligationsService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class OperationOverview extends Page
     public array $termDocuments     = [];
     public array $suggestedObs      = [];
     public array $approvedObs       = [];
-    public array $dueSoon           = [];
+    public array $upcoming          = [];
     public array $categoryBreakdown = [];
 
     // Pre-computed index URLs — used by the Blade view so no class references are needed there
@@ -169,32 +170,27 @@ class OperationOverview extends Page
             ]))
             ->toArray();
 
-        // ── Due soon breakdown ────────────────────────────────────────────────
-        $this->dueSoon = [
-            'overdue'   => Obligation::where('operation_id', $id)
-                              ->where('status', 'vencida')
-                              ->whereNotNull('due_date')
-                              ->orderBy('due_date')
-                              ->select(['id', 'title', 'due_date', 'priority', 'obligation_type'])
-                              ->limit(5)->get()->toArray(),
-            'within_7'  => Obligation::where('operation_id', $id)
-                              ->whereNotNull('due_date')
-                              ->whereBetween('due_date', [
-                                  $now->toDateString(),
-                                  $now->copy()->addDays(7)->toDateString(),
-                              ])
-                              ->orderBy('due_date')
-                              ->select(['id', 'title', 'due_date', 'priority', 'obligation_type'])
-                              ->limit(5)->get()->toArray(),
-            'within_30' => Obligation::where('operation_id', $id)
-                              ->whereNotNull('due_date')
-                              ->whereBetween('due_date', [
-                                  $now->copy()->addDays(8)->toDateString(),
-                                  $now->copy()->addDays(30)->toDateString(),
-                              ])
-                              ->orderBy('due_date')
-                              ->select(['id', 'title', 'due_date', 'priority', 'obligation_type'])
-                              ->limit(5)->get()->toArray(),
+        // ── Próximos vencimentos (service-based) ──────────────────────────────
+        $svc = app(UpcomingObligationsService::class);
+
+        $toArr = fn ($col) => $col->map(fn ($ob) => [
+            'id'                  => $ob->id,
+            'title'               => $ob->title,
+            'obligation_category' => $ob->obligation_category,
+            'responsible_area'    => $ob->responsible_area,
+            'due_date'            => $ob->due_date?->toDateString(),
+            'status'              => $ob->status,
+            'priority'            => $ob->priority,
+            'non_compliance_risk' => $ob->non_compliance_risk,
+            'url_view'            => ObligationResource::getUrl('view', ['record' => $ob->id]),
+        ])->toArray();
+
+        $this->upcoming = [
+            'summary' => $svc->getUpcomingSummary($id),
+            'overdue' => $toArr($svc->getOverdue($id, 5)),
+            'due_7'   => $toArr($svc->getDueIn7Days($id, 5)),
+            'due_30'  => $toArr($svc->getDueIn30Days($id, 5)),
+            'no_date' => $toArr($svc->getWithoutDueDate($id, 5)),
         ];
 
         // ── Category breakdown (by obligation_category) ───────────────────────

@@ -129,8 +129,184 @@
 
     </div>
 
+    {{-- ── Próximos Vencimentos ──────────────────────────────────────────── --}}
+    @php
+        $upcoming = $this->getUpcomingData();
+        $upStatusColor = fn ($s) => match ($s) {
+            'vencida' => 'danger', 'a_vencer' => 'warning', 'em_dia' => 'success',
+            'concluida' => 'info', 'em_analise' => 'primary', 'waiver' => 'warning',
+            'nao_aplicavel' => 'gray', 'pendente_evidencia' => 'info', default => 'gray',
+        };
+        $upStatusLabel = fn ($s) => match ($s) {
+            'vencida' => 'Vencida', 'a_vencer' => 'A vencer', 'em_dia' => 'Em dia',
+            'concluida' => 'Concluída', 'em_analise' => 'Em análise', 'waiver' => 'Waiver',
+            'nao_aplicavel' => 'N/A', 'pendente_evidencia' => 'Pend. Evidência', default => $s,
+        };
+        $upPriorityColor = fn ($p) => match ($p) {
+            'critical' => 'danger', 'high' => 'warning', 'medium' => 'info', default => 'gray',
+        };
+        $upPriorityLabel = fn ($p) => match ($p) {
+            'critical' => 'Crítica', 'high' => 'Alta', 'medium' => 'Média', default => 'Baixa',
+        };
+        $upRiskColor = fn ($r) => match ($r) {
+            'critico' => 'danger', 'alto' => 'warning', 'medio' => 'info', 'baixo' => 'success', default => 'gray',
+        };
+        $upRiskLabel = fn ($r) => match ($r) {
+            'critico' => 'Crítico', 'alto' => 'Alto', 'medio' => 'Médio', 'baixo' => 'Baixo', default => ($r ?? '—'),
+        };
+        $sum = $upcoming['summary'];
+    @endphp
+
+    <div class="mt-8 mb-2">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-base font-bold text-gray-900 dark:text-white">Próximos Vencimentos</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Obrigações aprovadas que exigem atenção por data</p>
+            </div>
+            <div class="flex items-center gap-4 text-xs font-medium">
+                @if($sum['overdue_count'] > 0)
+                    <span class="flex items-center gap-1 text-red-600 dark:text-red-400">
+                        <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                        {{ $sum['overdue_count'] }} vencida{{ $sum['overdue_count'] > 1 ? 's' : '' }}
+                    </span>
+                @endif
+                @if($sum['due_in_7_count'] > 0)
+                    <span class="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                        {{ $sum['due_in_7_count'] }} em 7 dias
+                    </span>
+                @endif
+                @if($sum['due_in_30_count'] > 0)
+                    <span class="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                        {{ $sum['due_in_30_count'] }} em 30 dias
+                    </span>
+                @endif
+            </div>
+        </div>
+
+        @if($sum['overdue_count'] + $sum['due_in_7_count'] + $sum['due_in_30_count'] === 0)
+            <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 py-10 flex flex-col items-center justify-center text-center">
+                <x-filament::icon icon="heroicon-o-calendar-days" class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Nenhuma obrigação com vencimento próximo.</p>
+            </div>
+        @else
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                {{-- Vencidas --}}
+                <div class="rounded-xl border border-red-200/60 dark:border-red-900/40 bg-red-50/30 dark:bg-red-950/10 p-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400 mb-3 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-red-500 inline-block shrink-0"></span>
+                        Vencidas
+                        <span class="ml-auto font-bold text-gray-900 dark:text-white text-base leading-none">{{ $sum['overdue_count'] }}</span>
+                    </h3>
+                    @if(count($upcoming['overdue']) === 0)
+                        <p class="text-xs text-gray-400 dark:text-gray-500 italic text-center py-4">Nenhuma obrigação vencida.</p>
+                    @else
+                        <div class="space-y-2">
+                            @foreach($upcoming['overdue'] as $ob)
+                                <div class="rounded-lg bg-white dark:bg-gray-900 ring-1 ring-red-100 dark:ring-red-900/30 p-3 hover:ring-red-200 dark:hover:ring-red-700/40 transition-colors">
+                                    <div class="flex items-start justify-between gap-2 mb-2">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white leading-snug truncate" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                        <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 shrink-0">Ver</a>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                                        {{ $ob['operation_name'] }}
+                                        @if($ob['due_date'])
+                                            · <span class="font-semibold text-red-600 dark:text-red-400">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</span>
+                                        @endif
+                                    </p>
+                                    <div class="flex flex-wrap gap-1">
+                                        <x-filament::badge :color="$upStatusColor($ob['status'])" size="sm">{{ $upStatusLabel($ob['status']) }}</x-filament::badge>
+                                        <x-filament::badge :color="$upPriorityColor($ob['priority'])" size="sm">{{ $upPriorityLabel($ob['priority']) }}</x-filament::badge>
+                                        @if(!empty($ob['non_compliance_risk']))
+                                            <x-filament::badge :color="$upRiskColor($ob['non_compliance_risk'])" size="sm">{{ $upRiskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Até 7 dias --}}
+                <div class="rounded-xl border border-amber-200/60 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/10 p-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-3 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0"></span>
+                        Até 7 Dias
+                        <span class="ml-auto font-bold text-gray-900 dark:text-white text-base leading-none">{{ $sum['due_in_7_count'] }}</span>
+                    </h3>
+                    @if(count($upcoming['due_7']) === 0)
+                        <p class="text-xs text-gray-400 dark:text-gray-500 italic text-center py-4">Nenhuma obrigação vence nos próximos 7 dias.</p>
+                    @else
+                        <div class="space-y-2">
+                            @foreach($upcoming['due_7'] as $ob)
+                                <div class="rounded-lg bg-white dark:bg-gray-900 ring-1 ring-amber-100 dark:ring-amber-900/30 p-3 hover:ring-amber-200 dark:hover:ring-amber-700/40 transition-colors">
+                                    <div class="flex items-start justify-between gap-2 mb-2">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white leading-snug truncate" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                        <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 shrink-0">Ver</a>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                                        {{ $ob['operation_name'] }}
+                                        @if($ob['due_date'])
+                                            · <span class="font-semibold text-amber-600 dark:text-amber-400">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</span>
+                                        @endif
+                                    </p>
+                                    <div class="flex flex-wrap gap-1">
+                                        <x-filament::badge :color="$upStatusColor($ob['status'])" size="sm">{{ $upStatusLabel($ob['status']) }}</x-filament::badge>
+                                        <x-filament::badge :color="$upPriorityColor($ob['priority'])" size="sm">{{ $upPriorityLabel($ob['priority']) }}</x-filament::badge>
+                                        @if(!empty($ob['non_compliance_risk']))
+                                            <x-filament::badge :color="$upRiskColor($ob['non_compliance_risk'])" size="sm">{{ $upRiskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Até 30 dias --}}
+                <div class="rounded-xl border border-blue-200/60 dark:border-blue-900/40 bg-blue-50/30 dark:bg-blue-950/10 p-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0"></span>
+                        Até 30 Dias
+                        <span class="ml-auto font-bold text-gray-900 dark:text-white text-base leading-none">{{ $sum['due_in_30_count'] }}</span>
+                    </h3>
+                    @if(count($upcoming['due_30']) === 0)
+                        <p class="text-xs text-gray-400 dark:text-gray-500 italic text-center py-4">Nenhuma obrigação vence nos próximos 30 dias.</p>
+                    @else
+                        <div class="space-y-2">
+                            @foreach($upcoming['due_30'] as $ob)
+                                <div class="rounded-lg bg-white dark:bg-gray-900 ring-1 ring-blue-100 dark:ring-blue-900/30 p-3 hover:ring-blue-200 dark:hover:ring-blue-700/40 transition-colors">
+                                    <div class="flex items-start justify-between gap-2 mb-2">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white leading-snug truncate" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                        <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 shrink-0">Ver</a>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                                        {{ $ob['operation_name'] }}
+                                        @if($ob['due_date'])
+                                            · <span class="font-semibold text-blue-600 dark:text-blue-400">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</span>
+                                        @endif
+                                    </p>
+                                    <div class="flex flex-wrap gap-1">
+                                        <x-filament::badge :color="$upStatusColor($ob['status'])" size="sm">{{ $upStatusLabel($ob['status']) }}</x-filament::badge>
+                                        <x-filament::badge :color="$upPriorityColor($ob['priority'])" size="sm">{{ $upPriorityLabel($ob['priority']) }}</x-filament::badge>
+                                        @if(!empty($ob['non_compliance_risk']))
+                                            <x-filament::badge :color="$upRiskColor($ob['non_compliance_risk'])" size="sm">{{ $upRiskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+            </div>
+        @endif
+    </div>
+
     {{-- Obligations table with built-in filters --}}
-    <div class="mt-2">
+    <div class="mt-6">
         {{ $this->table }}
     </div>
 </x-filament-panels::page>

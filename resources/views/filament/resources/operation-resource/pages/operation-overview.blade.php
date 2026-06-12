@@ -70,6 +70,7 @@ $procStatusLabel = fn ($s) => match ($s) {
 
 <div class="flex items-center gap-6 overflow-x-auto border-b border-gray-200 dark:border-gray-800 pb-2 text-sm font-medium text-gray-500 dark:text-gray-400 -mt-2">
     <a href="#resumo" class="hover:text-primary-600 dark:hover:text-primary-400 whitespace-nowrap">Resumo Executivo</a>
+    <a href="#vencimentos" class="hover:text-primary-600 dark:hover:text-primary-400 whitespace-nowrap">Próximos Vencimentos</a>
     <a href="#obrigacoes" class="hover:text-primary-600 dark:hover:text-primary-400 whitespace-nowrap">Obrigações Aprovadas</a>
     <a href="#sugestoes" class="hover:text-primary-600 dark:hover:text-primary-400 whitespace-nowrap">Sugestões (IA)</a>
     <a href="#documentos" class="hover:text-primary-600 dark:hover:text-primary-400 whitespace-nowrap">Termos & Documentos</a>
@@ -340,6 +341,173 @@ $procStatusLabel = fn ($s) => match ($s) {
         <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5 text-red-400 dark:text-red-500 shrink-0" />
     </div>
 </div>
+
+<div id="vencimentos" class="scroll-mt-8 mt-8"></div>
+
+{{-- ══════════════════════════════════════════════════════════════════════════ --}}
+{{-- PRÓXIMOS VENCIMENTOS                                                       --}}
+{{-- ══════════════════════════════════════════════════════════════════════════ --}}
+
+<x-filament::section>
+    <x-slot name="heading">
+        Próximos Vencimentos
+    </x-slot>
+
+    {{-- Summary strip --}}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div class="rounded-lg bg-red-50/60 dark:bg-red-950/20 px-4 py-2.5 ring-1 ring-red-100 dark:ring-red-900/30 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 mb-0.5">Vencidas</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $upcoming['summary']['overdue_count'] }}</p>
+        </div>
+        <div class="rounded-lg bg-amber-50/60 dark:bg-amber-950/20 px-4 py-2.5 ring-1 ring-amber-100 dark:ring-amber-900/30 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-0.5">Até 7 Dias</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $upcoming['summary']['due_in_7_count'] }}</p>
+        </div>
+        <div class="rounded-lg bg-blue-50/60 dark:bg-blue-950/20 px-4 py-2.5 ring-1 ring-blue-100 dark:ring-blue-900/30 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">Até 30 Dias</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $upcoming['summary']['due_in_30_count'] }}</p>
+        </div>
+        <div class="rounded-lg bg-gray-50/60 dark:bg-gray-800/20 px-4 py-2.5 ring-1 ring-gray-200 dark:ring-gray-700/30 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">Sem Data</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-white leading-none">{{ $upcoming['summary']['no_due_date_count'] }}</p>
+        </div>
+    </div>
+
+    @php
+        $anyUpcoming = $upcoming['summary']['overdue_count'] + $upcoming['summary']['due_in_7_count'] + $upcoming['summary']['due_in_30_count'] > 0;
+    @endphp
+
+    @if(!$anyUpcoming && $upcoming['summary']['no_due_date_count'] === 0)
+        <div class="py-6 flex flex-col items-center justify-center text-center">
+            <x-filament::icon icon="heroicon-o-calendar-days" class="h-7 w-7 text-gray-300 dark:text-gray-600 mb-2" />
+            <p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma obrigação com vencimento próximo.</p>
+        </div>
+    @else
+        {{-- Three-column date grid --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+            {{-- Vencidas --}}
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 mb-2">Vencidas</p>
+                @if(count($upcoming['overdue']) === 0)
+                    <p class="text-xs text-gray-400 italic">Nenhuma obrigação vencida.</p>
+                @else
+                    <div class="space-y-2">
+                        @foreach($upcoming['overdue'] as $ob)
+                            <div class="rounded-lg ring-1 ring-red-100 dark:ring-red-900/30 bg-white dark:bg-gray-900 p-3">
+                                <div class="flex justify-between gap-2 mb-1">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate leading-snug" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                    <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 shrink-0 hover:underline">Ver</a>
+                                </div>
+                                @if($ob['responsible_area'])
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{{ $ob['responsible_area'] }}</p>
+                                @endif
+                                @if($ob['due_date'])
+                                    <p class="text-xs font-semibold text-red-600 dark:text-red-400 mb-1.5">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</p>
+                                @endif
+                                <div class="flex flex-wrap gap-1">
+                                    <x-filament::badge :color="$obStatusColor($ob['status'])" size="sm">{{ $obStatusLabel($ob['status']) }}</x-filament::badge>
+                                    <x-filament::badge :color="$priorityColor($ob['priority'])" size="sm">{{ $priorityLabel($ob['priority']) }}</x-filament::badge>
+                                    @if(!empty($ob['non_compliance_risk']))
+                                        <x-filament::badge :color="$riskColor($ob['non_compliance_risk'])" size="sm">{{ $riskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            {{-- Até 7 dias --}}
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">Até 7 Dias</p>
+                @if(count($upcoming['due_7']) === 0)
+                    <p class="text-xs text-gray-400 italic">Nenhuma obrigação vence nos próximos 7 dias.</p>
+                @else
+                    <div class="space-y-2">
+                        @foreach($upcoming['due_7'] as $ob)
+                            <div class="rounded-lg ring-1 ring-amber-100 dark:ring-amber-900/30 bg-white dark:bg-gray-900 p-3">
+                                <div class="flex justify-between gap-2 mb-1">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate leading-snug" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                    <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 shrink-0 hover:underline">Ver</a>
+                                </div>
+                                @if($ob['responsible_area'])
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{{ $ob['responsible_area'] }}</p>
+                                @endif
+                                @if($ob['due_date'])
+                                    <p class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1.5">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</p>
+                                @endif
+                                <div class="flex flex-wrap gap-1">
+                                    <x-filament::badge :color="$obStatusColor($ob['status'])" size="sm">{{ $obStatusLabel($ob['status']) }}</x-filament::badge>
+                                    <x-filament::badge :color="$priorityColor($ob['priority'])" size="sm">{{ $priorityLabel($ob['priority']) }}</x-filament::badge>
+                                    @if(!empty($ob['non_compliance_risk']))
+                                        <x-filament::badge :color="$riskColor($ob['non_compliance_risk'])" size="sm">{{ $riskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            {{-- Até 30 dias --}}
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2">Até 30 Dias</p>
+                @if(count($upcoming['due_30']) === 0)
+                    <p class="text-xs text-gray-400 italic">Nenhuma obrigação vence nos próximos 30 dias.</p>
+                @else
+                    <div class="space-y-2">
+                        @foreach($upcoming['due_30'] as $ob)
+                            <div class="rounded-lg ring-1 ring-blue-100 dark:ring-blue-900/30 bg-white dark:bg-gray-900 p-3">
+                                <div class="flex justify-between gap-2 mb-1">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate leading-snug" title="{{ $ob['title'] }}">{{ $ob['title'] }}</p>
+                                    <a href="{{ $ob['url_view'] }}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 shrink-0 hover:underline">Ver</a>
+                                </div>
+                                @if($ob['responsible_area'])
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{{ $ob['responsible_area'] }}</p>
+                                @endif
+                                @if($ob['due_date'])
+                                    <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1.5">{{ \Carbon\Carbon::parse($ob['due_date'])->format('d/m/Y') }}</p>
+                                @endif
+                                <div class="flex flex-wrap gap-1">
+                                    <x-filament::badge :color="$obStatusColor($ob['status'])" size="sm">{{ $obStatusLabel($ob['status']) }}</x-filament::badge>
+                                    <x-filament::badge :color="$priorityColor($ob['priority'])" size="sm">{{ $priorityLabel($ob['priority']) }}</x-filament::badge>
+                                    @if(!empty($ob['non_compliance_risk']))
+                                        <x-filament::badge :color="$riskColor($ob['non_compliance_risk'])" size="sm">{{ $riskLabel($ob['non_compliance_risk']) }}</x-filament::badge>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        {{-- Sem data definida (compact pill list) --}}
+        @if(count($upcoming['no_date']) > 0)
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Sem Data Definida ({{ $upcoming['summary']['no_due_date_count'] }})
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($upcoming['no_date'] as $ob)
+                        <a href="{{ $ob['url_view'] }}"
+                           class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors max-w-[220px] truncate"
+                           title="{{ $ob['title'] }}">
+                            {{ \Illuminate\Support\Str::limit($ob['title'], 30) }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+            <x-filament::button tag="a" href="{{ $obligationsIndexUrl }}" color="gray" size="sm" icon="heroicon-o-arrow-right" icon-position="after">
+                Ver todas as obrigações
+            </x-filament::button>
+        </div>
+    @endif
+</x-filament::section>
 
 <div id="obrigacoes" class="scroll-mt-8 mt-8"></div>
 

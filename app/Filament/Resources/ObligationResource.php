@@ -5,14 +5,16 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ObligationResource\Pages;
 use App\Models\Obligation;
 use App\Models\ObligationHistory;
-use App\Services\ObligationCategoryClassifier;
 use App\Services\NonComplianceRiskService;
+use App\Services\ObligationCategoryClassifier;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class ObligationResource extends Resource
 {
@@ -213,6 +215,42 @@ class ObligationResource extends Resource
                 Tables\Filters\SelectFilter::make('obligation_type')
                     ->label('Tipo')
                     ->options(array_combine(Obligation::obligationTypes(), Obligation::obligationTypes())),
+
+                Tables\Filters\Filter::make('prazo')
+                    ->label('Prazo')
+                    ->form([
+                        Forms\Components\Select::make('prazo_tipo')
+                            ->label('Prazo')
+                            ->options([
+                                'vencidas'    => 'Vencidas',
+                                'ate_7_dias'  => 'Até 7 dias',
+                                'ate_30_dias' => 'Até 30 dias',
+                                'sem_data'    => 'Sem data definida',
+                            ])
+                            ->placeholder('Todos'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $tipo     = $data['prazo_tipo'] ?? null;
+                        $excluded = ['concluida', 'waiver', 'nao_aplicavel'];
+                        $today    = Carbon::now()->startOfDay()->toDateString();
+
+                        return match ($tipo) {
+                            'vencidas'    => $query->whereNotIn('status', $excluded)->whereNotNull('due_date')->where('due_date', '<', $today),
+                            'ate_7_dias'  => $query->whereNotIn('status', $excluded)->whereNotNull('due_date')->whereBetween('due_date', [$today, Carbon::now()->startOfDay()->addDays(7)->toDateString()]),
+                            'ate_30_dias' => $query->whereNotIn('status', $excluded)->whereNotNull('due_date')->whereBetween('due_date', [Carbon::now()->startOfDay()->addDays(8)->toDateString(), Carbon::now()->startOfDay()->addDays(30)->toDateString()]),
+                            'sem_data'    => $query->whereNotIn('status', $excluded)->whereNull('due_date'),
+                            default       => $query,
+                        };
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        return match ($data['prazo_tipo'] ?? null) {
+                            'vencidas'    => 'Prazo: Vencidas',
+                            'ate_7_dias'  => 'Prazo: Até 7 dias',
+                            'ate_30_dias' => 'Prazo: Até 30 dias',
+                            'sem_data'    => 'Prazo: Sem data definida',
+                            default       => null,
+                        };
+                    }),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
